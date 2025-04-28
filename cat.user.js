@@ -1,10 +1,12 @@
 // ==UserScript==
 // @name         Colourul tasks
 // @namespace    http://tampermonkey.net/
-// @version      0.1
+// @version      0.1.1
 // @description  Change the color of tasks based on their type
 // @author       Anton Tkach <anton.tkach.dev@gmail.com>
 // @include      https://*.kommo.com/todo/calendar/week/*
+// @updateURL    https://raw.githubusercontent.com/AntonTkach/customer-admin-toolkit/master/cat.user.js
+// @downloadURL  https://raw.githubusercontent.com/AntonTkach/customer-admin-toolkit/master/cat.user.js
 // @icon         https://pcfcdn.kommo.com/favicon.ico
 // @grant        none
 // @run-at       document-idle
