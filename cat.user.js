@@ -1,21 +1,26 @@
 // ==UserScript==
 // @name         Customer Admin Toolkit
 // @namespace    http://tampermonkey.net/
-// @version      0.2
-// @description  Adds QoL improvement to CRM
+// @version      0.2.1.1
+// @description  Add QoL improvement to CRM
 // @author       Anton Tkach <anton.tkach.dev@gmail.com>
 // @include      https://*.kommo.com/todo/calendar/week/*
 // @include      https://*.kommo.com/leads/detail/*
+// @resource     INTERNAL_CSS https://raw.githubusercontent.com/AntonTkach/customer-admin-toolkit/master/style.css
 // @updateURL    https://raw.githubusercontent.com/AntonTkach/customer-admin-toolkit/master/cat.user.js
 // @downloadURL  https://raw.githubusercontent.com/AntonTkach/customer-admin-toolkit/master/cat.user.js
 // @icon         https://pcfcdn.kommo.com/favicon.ico
 // @license      PolyForm Strict License 1.0.0
-// @grant        none
+// @grant        GM_addStyle
+// @grant        GM_getResourceText
 // @run-at       document-idle
 // ==/UserScript==
 
 (function() {
   'use strict';
+
+  const style = GM_getResourceText("INTERNAL_CSS");
+  GM_addStyle(style);
 
   function changeEventColors() {
       const events = document.querySelectorAll('a.fc-time-grid-event:not(.fc-completed)');
@@ -87,41 +92,18 @@
         datetime.setMinutes(datetime.getMinutes() + (hours % 1) * 60);  // Add fractional minutes
         return formatDatetime(datetime)
     }
-
-    const dateStr = document.querySelector('[data-id="770966"] input').value
-
-    console.log(addHours(dateStr,1));
     
     const dateSource = document.querySelector('[data-id="770966"]');
     const dateTargetInput = document.querySelector('[data-id="770968"] input')
+    dateSource.querySelector('.linked-form__field__value').style.setProperty('max-width', '150px');
 
     const button1h = document.createElement('div');
-
     button1h.textContent = '+1h';
-
-    button1h.style.marginLeft = '5px';
-    // button1h.style.padding = '5px 10px';
-    button1h.style.cursor = 'pointer';
-    button1h.style.display = 'inline-block';
-    button1h.style.backgroundColor = '#3498db';
-    button1h.style.color = 'white';
-    button1h.style.textAlign = 'center';
-    button1h.style.borderRadius = '5px';
-    button1h.style.userSelect = 'none';
+    button1h.classList.add('qol-button');
 
     const button2_5h = document.createElement('div');
-
     button2_5h.textContent = '+2.5h';
-
-    button2_5h.style.marginLeft = '5px';
-    // button2_5h.style.padding = '5px 10px';
-    button2_5h.style.cursor = 'pointer';
-    button2_5h.style.display = 'inline-block';
-    button2_5h.style.backgroundColor = '#3498db';
-    button2_5h.style.color = 'white';
-    button2_5h.style.textAlign = 'center';
-    button2_5h.style.borderRadius = '5px';
-    button2_5h.style.userSelect = 'none';
+    button2_5h.classList.add('qol-button');
 
     const setupHourAdder = (hoursToAdd) => {
         return (event) => {
