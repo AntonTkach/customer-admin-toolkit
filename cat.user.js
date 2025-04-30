@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         Customer Admin Toolkit
 // @namespace    http://tampermonkey.net/
-// @version      0.2.2
+// @version      0.2.2.1
 // @description  Add QoL improvement to CRM
 // @author       Anton Tkach <anton.tkach.dev@gmail.com>
 // @include      https://*.kommo.com/todo/calendar/week/*
@@ -17,43 +17,40 @@
 // ==/UserScript==
 
 (function() {
-  'use strict';
+    'use strict';
 
-  const style = GM_getResourceText("INTERNAL_CSS");
-  GM_addStyle(style);
+    const style = GM_getResourceText("INTERNAL_CSS");
+    GM_addStyle(style);
 
-  function changeEventColors() {
-      const events = document.querySelectorAll('a.fc-time-grid-event:not(.fc-completed)');
+    function changeEventColors() {
+        const events = document.querySelectorAll('a.fc-time-grid-event:not(.fc-completed)');
+        events.forEach(event => {
+            const eventDiv = event.querySelector('div.fc-content[title]');
+            if (eventDiv) {
+                const title = eventDiv.getAttribute('title');
+                // Use a switch-case to determine the color based on the title
+                switch(true) {
+                    case title.includes('Check payment'):
+                        event.style.backgroundColor = 'rgba(255, 0, 0, 0.8)';
+                        break;
+                    case title.includes('Recheck'):
+                        event.style.backgroundColor = 'rgba(255, 255, 0, 0.8)';
+                        event.style.color = 'rgb(0, 0, 0)';
+                        break;
+                    default:
+                        break;
+                }
+            }
+        });
+    }
 
-      events.forEach(event => {
-          const eventDiv = event.querySelector('div.fc-content[title]');
-
-          if (eventDiv) {
-              const title = eventDiv.getAttribute('title');
-
-              // Use a switch-case to determine the color based on the title
-              switch(true) {
-                  case title.includes('Check payment'):
-                      event.style.backgroundColor = 'rgba(255, 0, 0, 0.8)';
-                      break;
-                  case title.includes('Recheck'):
-                      event.style.backgroundColor = 'rgba(255, 255, 0, 0.8)';
-                      event.style.color = 'rgb(0, 0, 0)';
-                      break;
-                  default:
-                      break;
-              }
-          }
-      });
-  }
-
-      // ================ +1h, +2.5h section =============
-      /**
-       * Converts sting date time to Date object
-       * @param {String} dateStr souce value to add to
-       * @returns {Date} Date object
-       */
-      function strToDate(dateStr) {
+    // ================ +1h, +2.5h section =============
+    /**
+     * Converts sting date time to Date object
+     * @param {String} dateStr souce value to add to
+     * @returns {Date} Date object
+     */
+    function strToDate(dateStr) {
         // Step 1: Convert to Date object (dd.mm.yyyy hh:mm)
         const [day, month, yearAndTime] = dateStr.split('.');
         const [year, time] = yearAndTime.split(' ');
@@ -64,11 +61,10 @@
 
     /**
      * Format to 'dd.mm.yyyy hh:mm'
-     * @param {Date} datetime 
+     * @param {Date} datetime
      * @returns {String}
      */
     function formatDatetime(datetime) {
-
         const pad = n => n.toString().padStart(2, '0');
         const result =
           `${pad(datetime.getDate())}.${pad(datetime.getMonth() + 1)}.${datetime.getFullYear()} ` +
@@ -78,8 +74,8 @@
 
     function addHours(dateStr, hours) {
         const datetime = strToDate(dateStr)
-        datetime.setHours(datetime.getHours() + Math.floor(hours));  // Add integer hours
-        datetime.setMinutes(datetime.getMinutes() + (hours % 1) * 60);  // Add fractional minutes
+        datetime.setHours(datetime.getHours() + Math.floor(hours));    // Add integer hours
+        datetime.setMinutes(datetime.getMinutes() + (hours % 1) * 60); // Add fractional minutes
         return formatDatetime(datetime)
     }
 
