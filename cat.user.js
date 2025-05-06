@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         Customer Admin Toolkit
 // @namespace    http://tampermonkey.net/
-// @version      0.3.1
+// @version      0.3.2
 // @description  Add QoL improvement to CRM
 // @author       Anton Tkach <anton.tkach.dev@gmail.com>
 // @include      https://*.kommo.com/todo/calendar/week/*
@@ -81,14 +81,12 @@
 
     function addQolButtons() {
         const dateSource = document.querySelector('[data-id="770966"]');
-        const dateSourceValue = dateSource ? dateSource.querySelector('input').value : null;
         const dateTargetInput = document.querySelector('[data-id="770968"] input')
         const sumSource = document.querySelector('[data-id="771808"]');
         const sumTargetInput = document.querySelector('[data-id="771810"] input');
         const budgetInput = document.querySelector('input[name="lead[PRICE]"]');
-        const budgetValue = budgetInput ? budgetInput.value : 0;
 
-        if (dateSource && dateTargetInput && dateSourceValue) {
+        if (dateSource && dateTargetInput && dateSource.querySelector('input').value) {
             if (dateSource.querySelector('.qol-button')) return;
             dateSource.querySelector('.linked-form__field__value').style.setProperty('max-width', '150px');
 
@@ -105,9 +103,9 @@
                     event.preventDefault();  // Prevent the form submission to ajax
                     event.stopPropagation(); // Stop the event from propagating up the DOM
 
-                    dateTargetInput.focus();
+                    const dateSourceValue = dateSource ? dateSource.querySelector('input').value : null;
                     dateTargetInput.value = addHours(dateSourceValue, hoursToAdd);
-                    dateTargetInput.blur();
+                    dateTargetInput.dispatchEvent(new Event('input', { bubbles: true }));
                 };
             };
 
@@ -116,9 +114,9 @@
 
             dateSource.appendChild(button1h);
             dateSource.appendChild(button2_5h);
-        }      
+        }
 
-        if (sumSource && sumTargetInput && budgetValue) {
+        if (sumSource && sumTargetInput && budgetInput) {
             if (sumSource.querySelector('.qol-button')) return;
             sumSource.querySelector('.linked-form__field__value').style.setProperty('max-width', '150px');
 
@@ -134,14 +132,14 @@
                     const sumSourceValue = sumSource ? document.querySelector('[name="CFV[771808]"]').value : 0;
 
                     if (!sumSourceValue) {
-                        sumTargetInput.focus();
-                        sumSource.querySelector('input').value = 0
-                        sumTargetInput.blur();
+                        const sumSourceInput = sumSource.querySelector('input');
+                        sumSourceInput.value = 0;
+                        sumSourceInput.dispatchEvent(new Event('input', { bubbles: true }));
                     }
 
-                    sumTargetInput.focus();
+                    const budgetValue = budgetInput ? budgetInput.value : 0;
                     sumTargetInput.value = budgetValue - sumSourceValue;
-                    sumTargetInput.blur();
+                    sumTargetInput.dispatchEvent(new Event('input', { bubbles: true }));
                 }
             }
             autoComputeSumButton.addEventListener('click', autoComputeSum());
