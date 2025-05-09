@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         Customer Admin Toolkit
 // @namespace    http://tampermonkey.net/
-// @version      0.3.2
+// @version      0.4
 // @description  Add QoL improvement to CRM
 // @author       Anton Tkach <anton.tkach.dev@gmail.com>
 // @include      https://*.kommo.com/todo/calendar/week/*
@@ -21,6 +21,50 @@
 
     const style = GM_getResourceText("INTERNAL_CSS");
     GM_addStyle(style);
+
+    /**
+     * Extracts the task types and their corresponding colors
+     * @returns {Array} Array of task type colors
+     */
+    function extractTaskTypeColors() {
+        const scripts = document.querySelectorAll('script');
+        let targetScriptContent = null;
+      
+        // 1. Find the script tag containing the task_types definition
+        for (const script of scripts) {
+            // Ensure script.textContent is not null before calling .includes
+            if (script.textContent && script.textContent.includes("APP.constant('task_types'")) {
+                targetScriptContent = script.textContent;
+                break;
+            }
+        }
+
+        // [\s\S]*? is used to match any character including newlines, non-greedily.
+        const regex = /APP\.constant\s*\(\s*['"]task_types['"]\s*,\s*(\{[\s\S]*?\})\s*\)\s*;/;
+        const match = targetScriptContent.match(regex);
+  
+        if (!match || !match[1]) {
+            console.warn("Could not extract the task_types object string using regex.");
+            return [];
+        }
+      
+        const objectString = match[1];
+        let taskTypesData;
+        taskTypesData = JSON.parse(objectString);
+  
+        const result = [];
+        for (const key in taskTypesData) {
+            if (Object.prototype.hasOwnProperty.call(taskTypesData, key)) {
+                const item = taskTypesData[key];
+                if (item && typeof item.option === 'string' && typeof item.color === 'string') {
+                    // Prepending '#' to make it a valid CSS color, adjust if not needed
+                    result.push({ name: item.option, color: `#${item.color}` });
+                }
+            }
+        }
+      
+        return result;
+    }
 
     function changeEventColors() {
         const events = document.querySelectorAll('a.fc-time-grid-event:not(.fc-completed)');
