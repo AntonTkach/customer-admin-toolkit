@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         Customer Admin Toolkit
 // @namespace    http://tampermonkey.net/
-// @version      0.3.2
+// @version      0.4
 // @description  Add QoL improvement to CRM
 // @author       Anton Tkach <anton.tkach.dev@gmail.com>
 // @include      https://*.kommo.com/todo/calendar/week/*
@@ -22,23 +22,71 @@
     const style = GM_getResourceText("INTERNAL_CSS");
     GM_addStyle(style);
 
+    /**
+     * Extracts the task types and their corresponding colors
+     * @returns {JSON} JSON of {"task type": color} pairs
+     */
+    function extractTaskTypeColors() {
+        const scripts = document.querySelectorAll('script');
+        let targetScriptContent = null;
+
+        const hex2rgba = (hex, alpha = 1) => {
+            const [r, g, b] = hex.match(/\w\w/g).map(x => parseInt(x, 16));
+            return {r, g, b, a:alpha};
+        };
+
+        for (const script of scripts) {
+            if (script.textContent && script.textContent.includes("APP.constant('task_types'")) {
+                targetScriptContent = script.textContent;
+                break;
+            }
+        }
+
+        // [\s\S]*? is used to match any character including newlines, non-greedily.
+        const regex = /APP\.constant\s*\(\s*['"]task_types['"]\s*,\s*(\{[\s\S]*?\})\s*\)\s*;/;
+        const match = targetScriptContent.match(regex);
+
+        if (!match || !match[1]) {
+            console.warn("Could not extract the task_types object string using regex.");
+            return [];
+        }
+
+        const objectString = match[1];
+        let taskTypesData;
+        taskTypesData = JSON.parse(objectString);
+
+        const result = {};
+        for (const key in taskTypesData) {
+            if (Object.prototype.hasOwnProperty.call(taskTypesData, key)) {
+                const item = taskTypesData[key];
+                if (item && typeof item.option === 'string' && typeof item.color === 'string') {
+                    result[item.option] = hex2rgba(item.color, 1);
+                }
+            }
+        }
+      
+        return result;
+    }
+
     function changeEventColors() {
         const events = document.querySelectorAll('a.fc-time-grid-event:not(.fc-completed)');
+        const colors = extractTaskTypeColors()
         events.forEach(event => {
             const eventDiv = event.querySelector('div.fc-content[title]');
             if (eventDiv) {
                 const title = eventDiv.getAttribute('title');
-                // Use a switch-case to determine the color based on the title
-                switch(true) {
-                    case title.includes('Check payment'):
-                        event.style.backgroundColor = 'rgba(255, 0, 0, 0.8)';
-                        break;
-                    case title.includes('Recheck'):
-                        event.style.backgroundColor = 'rgba(255, 255, 0, 0.8)';
-                        event.style.color = 'rgb(0, 0, 0)';
-                        break;
-                    default:
-                        break;
+                // Check payment: 123 -> Check payment
+                const eventType = title.split(':')[0]
+                const EXCLUSIONS = ['Связаться', 'Бронь']
+                if (EXCLUSIONS.includes(eventType)) {
+                    return;
+                }
+                event.style.backgroundColor = 
+                    `rgba(${colors[eventType].r}, ${colors[eventType].g}, \
+                    ${colors[eventType].b}, ${colors[eventType].a})`;
+                // https://www.w3.org/TR/WCAG20/#relativeluminancedef
+                if (0.299 * colors[eventType].r + 0.587 * colors[eventType].g + 0.114 * colors[eventType].b > 186) {
+                    event.style.color = 'rgb(0, 0, 0)';
                 }
             }
         });
