@@ -1,10 +1,11 @@
 // ==UserScript==
 // @name         Customer Admin Toolkit
 // @namespace    http://tampermonkey.net/
-// @version      0.5.0.1
+// @version      0.5.1.1
 // @description  Add QoL improvement to CRM
 // @author       Anton Tkach <anton.tkach.dev@gmail.com>
 // @include      https://*.kommo.com/todo/calendar/week/*
+// @include      https://*.kommo.com/todo/calendar/day/*
 // @include      https://*.kommo.com/leads/detail/*
 // @resource     INTERNAL_CSS https://raw.githubusercontent.com/AntonTkach/customer-admin-toolkit/master/style.css
 // @updateURL    https://raw.githubusercontent.com/AntonTkach/customer-admin-toolkit/master/cat.user.js
@@ -86,6 +87,8 @@ IMPLIED.
             const settingsWrappedDiv = document.createElement('div');
             settingsWrappedDiv.className = 'tm-settings-wrapper';
 
+            // Ensure, that the value is set
+            GM_setValue(setting.settingsKey, GM_getValue(setting.settingsKey) || setting.default);
             const storedSettingValue = GM_getValue(setting.settingsKey);
 
             setting.values.forEach((value, i) => {
@@ -101,7 +104,6 @@ IMPLIED.
                     // settingLabel.textContent = `Option ${value}`;
                     settingLabel.className = 'tm-setting-option';
 
-
                     const switchLabel = document.createElement('label');
                     // switchLabel.setAttribute('for', inputId);
                     switchLabel.className = 'tm-switch';
@@ -114,13 +116,8 @@ IMPLIED.
                     input.addEventListener('click', ()=> {
                         GM_setValue(setting.settingsKey, input.value);
                     })
-                    
-                    if (storedSettingValue) {
-                        input.checked = storedSettingValue === value;
-                    } else {
-                        input.checked = false;
-                        GM_setValue(setting.settingsKey, setting.default);
-                    }
+
+                    input.checked = storedSettingValue === value;
 
                     const spanSlider = document.createElement('span');
                     spanSlider.className = 'slider round';
@@ -147,6 +144,7 @@ IMPLIED.
         };
 
         const closeCurtain = () => {
+          initializeSettings()
           curtain.style.top = '-100%';
         }
 
@@ -156,7 +154,28 @@ IMPLIED.
             }
         });
 
-        GM_registerMenuCommand('⚙️ Settings', dropCurtain); 
+        GM_registerMenuCommand('⚙️ Settings', dropCurtain);
+        initializeSettings();
+    }
+
+    /**
+     * Sets day area size based on user settings
+     */
+    function setDayAreaSize() {
+      const dayAreaElement = document.querySelector('.fc-day-grid');
+      if (!dayAreaElement) return;
+      const dayAreaSetting = parseFloat(GM_getValue('dayArea')) / 100;
+      const maxDayAreaHeight = 100;//px
+      const dayAreaHeight = maxDayAreaHeight * dayAreaSetting;
+      dayAreaElement.style.maxHeight = `${dayAreaHeight}px`;
+    }
+
+    /**
+     * Triggers all settings to be applied
+     */
+    function initializeSettings() {
+      setDayAreaSize();
+      window.dispatchEvent(new Event('resize'));
     }
 
     /**
@@ -342,9 +361,15 @@ IMPLIED.
         };
     };
 
+    let isSettingsInitialized = false
     const observer = new MutationObserver(debounce(() => {
         changeEventColors();
         addQolButtons();
+
+        if (!isSettingsInitialized) {
+            initializeSettings();
+            isSettingsInitialized = true;
+        }
     }, 50));
 
     observer.observe(document.body, {
