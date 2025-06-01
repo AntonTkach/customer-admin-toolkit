@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         Customer Admin Toolkit
 // @namespace    http://tampermonkey.net/
-// @version      0.4.1-license
+// @version      0.5.0.1
 // @description  Add QoL improvement to CRM
 // @author       Anton Tkach <anton.tkach.dev@gmail.com>
 // @include      https://*.kommo.com/todo/calendar/week/*
@@ -13,6 +13,9 @@
 // @license      PolyForm Strict License 1.0.0 (https://polyformproject.org/licenses/strict/1.0.0/)
 // @grant        GM_addStyle
 // @grant        GM_getResourceText
+// @grant        GM_registerMenuCommand
+// @grant        GM_getValue
+// @grant        GM_setValue
 // @run-at       document-idle
 // ==/UserScript==
 
@@ -56,6 +59,105 @@ IMPLIED.
 
     const style = GM_getResourceText("INTERNAL_CSS");
     GM_addStyle(style);
+
+    // ================ Settings section =============
+    const settingsMenuStructure = [
+        { "settingsKey": "dayArea", "type": "switch", "description": "How much area for the whole day tasks is visible", 
+          "values": [ "0%", "25%", "50%", "100%" ], "default": "25%" },
+        { "settingsKey": "colorUpdateRate", "type": "switch", "description": "Task color update interval", 
+          "values": [ "Always", "1h", "24h" ], "default": "24h" }
+    ];
+    
+    /**
+     * Creates the settings panel with all the settings
+     */
+    function createSettingsPanel () {
+        const curtain = document.createElement('div'); 
+        curtain.id = 'tm-curtain';
+
+        const settingsMenu = document.createElement('div');
+        settingsMenu.id = 'tm-panel';
+
+        settingsMenuStructure.forEach((setting, index) => {
+            const descriptionP = document.createElement('p');
+            descriptionP.textContent = setting.description;
+            settingsMenu.appendChild(descriptionP);
+
+            const settingsWrappedDiv = document.createElement('div');
+            settingsWrappedDiv.className = 'tm-settings-wrapper';
+
+            const storedSettingValue = GM_getValue(setting.settingsKey);
+
+            setting.values.forEach((value, i) => {
+                const settingDiv = document.createElement('div');
+                settingDiv.className = 'tm-setting';
+
+                switch (setting.type) {
+                  case 'switch': {
+                    const settingLabel = document.createElement('label');
+                    const inputId = `tm-setting-${setting.settingsKey}-${i}`;
+                    settingLabel.setAttribute('for', inputId);
+                    settingLabel.textContent = value;
+                    // settingLabel.textContent = `Option ${value}`;
+                    settingLabel.className = 'tm-setting-option';
+
+
+                    const switchLabel = document.createElement('label');
+                    // switchLabel.setAttribute('for', inputId);
+                    switchLabel.className = 'tm-switch';
+
+                    const input = document.createElement('input');
+                    input.type = 'radio';
+                    input.id = inputId;
+                    input.name = `group-${index}`; 
+                    input.value = value
+                    input.addEventListener('click', ()=> {
+                        GM_setValue(setting.settingsKey, input.value);
+                    })
+                    
+                    if (storedSettingValue) {
+                        input.checked = storedSettingValue === value;
+                    } else {
+                        input.checked = false;
+                        GM_setValue(setting.settingsKey, setting.default);
+                    }
+
+                    const spanSlider = document.createElement('span');
+                    spanSlider.className = 'slider round';
+
+                    switchLabel.appendChild(input);
+                    switchLabel.appendChild(spanSlider);
+                    settingLabel.appendChild(switchLabel);
+                    settingDiv.appendChild(settingLabel);
+                    break;
+                  }
+                  default:
+                    break;
+                }
+                settingsWrappedDiv.appendChild(settingDiv);
+            });
+            settingsMenu.appendChild(settingsWrappedDiv);
+        });
+
+        curtain.appendChild(settingsMenu);
+        document.body.appendChild(curtain);
+
+        const dropCurtain = function() {
+            curtain.style.top = '0';
+        };
+
+        const closeCurtain = () => {
+          curtain.style.top = '-100%';
+        }
+
+        curtain.addEventListener('click', function(e) {
+            if (e.target === curtain) {
+                closeCurtain()
+            }
+        });
+
+        GM_registerMenuCommand('⚙️ Settings', dropCurtain); 
+    }
 
     /**
      * Extracts the task types and their corresponding colors
@@ -249,6 +351,7 @@ IMPLIED.
         childList: true,
         subtree: true
     });
+    createSettingsPanel();
     changeEventColors();
     addQolButtons();
 })();
