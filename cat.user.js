@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         Customer Admin Toolkit
 // @namespace    http://tampermonkey.net/
-// @version      0.4
+// @version      0.4.1-license
 // @description  Add QoL improvement to CRM
 // @author       Anton Tkach <anton.tkach.dev@gmail.com>
 // @include      https://*.kommo.com/todo/calendar/week/*
@@ -10,11 +10,46 @@
 // @updateURL    https://raw.githubusercontent.com/AntonTkach/customer-admin-toolkit/master/cat.user.js
 // @downloadURL  https://raw.githubusercontent.com/AntonTkach/customer-admin-toolkit/master/cat.user.js
 // @icon         https://pcfcdn.kommo.com/favicon.ico
-// @license      PolyForm Strict License 1.0.0
+// @license      PolyForm Strict License 1.0.0 (https://polyformproject.org/licenses/strict/1.0.0/)
 // @grant        GM_addStyle
 // @grant        GM_getResourceText
 // @run-at       document-idle
 // ==/UserScript==
+
+/*
+Customer Admin Toolkit
+Copyright (C) 2025 Anton Tkach <anton.tkach.dev@gmail.com>
+
+This program is licensed under the PolyForm Strict License 1.0.0.
+You may obtain a copy of the License at:
+https://polyformproject.org/licenses/strict/1.0.0/
+
+The software is provided as a UserScript and relies on the specified @updateURL
+for new versions. The Copyright Holder may update the software at any time.
+
+Notwithstanding the foregoing PolyForm Strict License, the Copyright Holder (Anton Tkach)
+grants a temporary, non-exclusive, royalty-free license to E-Smoke OÜ (the "Company")
+and its bona fide employees to install and use the functional versions of this software
+internally for its intended purpose, solely for the duration of the Copyright Holder's
+active employment with the Company.
+
+This temporary license automatically and immediately terminates without notice
+upon the cessation of the Copyright Holder's employment with the Company
+for any reason. Upon termination of this temporary license:
+  a) All rights to use, reproduce, or distribute any functional version of the
+     software by the Company or its employees are revoked.
+  b) The Copyright Holder reserves the right to update the software via the
+     @updateURL to a version that may have reduced or no functionality,
+     reflecting the termination of the license to use prior functional versions.
+  c) Continued use of any prior functional version, or attempts to circumvent
+     updates to a non-functional version, will be subject to the terms of the
+     PolyForm Strict License 1.0.0, or a separately negotiated commercial
+     license with the Copyright Holder.
+
+All other rights are reserved by the Copyright Holder.
+This software is provided "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+IMPLIED.
+*/
 
 (function() {
     'use strict';
