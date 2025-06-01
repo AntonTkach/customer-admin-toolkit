@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         Customer Admin Toolkit
 // @namespace    http://tampermonkey.net/
-// @version      0.5.1.1
+// @version      0.5.2
 // @description  Add QoL improvement to CRM
 // @author       Anton Tkach <anton.tkach.dev@gmail.com>
 // @include      https://*.kommo.com/todo/calendar/week/*
@@ -180,7 +180,7 @@ IMPLIED.
 
     /**
      * Extracts the task types and their corresponding colors
-     * @returns {JSON} JSON of {"task type": color} pairs
+     * @returns {JSON} JSON of `{ "task type": { r, g, b, a} }` pairs
      */
     function extractTaskTypeColors() {
         const scripts = document.querySelectorAll('script');
@@ -224,9 +224,20 @@ IMPLIED.
         return result;
     }
 
+    /**
+     * Applies colors to events/tasks
+     */
     function changeEventColors() {
         const events = document.querySelectorAll('a.fc-time-grid-event:not(.fc-completed)');
-        const colors = extractTaskTypeColors()
+        let colors = {}
+        const colorUpdateRate = GM_getValue('colorUpdateRate');
+        if (colorUpdateRate === 'Always' || Date.now() - GM_getValue('lastColorUpdate', 0) > parseInt(colorUpdateRate) * 3600 * 1000){
+            colors = extractTaskTypeColors()
+            GM_setValue('colors', JSON.stringify(colors));
+            GM_setValue('lastColorUpdate', Date.now());
+        } else {
+            colors = JSON.parse(GM_getValue('colors'))
+        }
         events.forEach(event => {
             const eventDiv = event.querySelector('div.fc-content[title]');
             if (eventDiv) {
