@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         Customer Admin Toolkit
 // @namespace    http://tampermonkey.net/
-// @version      0.5.2
+// @version      0.6.2
 // @description  Add QoL improvement to CRM
 // @author       Anton Tkach <anton.tkach.dev@gmail.com>
 // @include      https://*.kommo.com/todo/calendar/week/*
@@ -295,70 +295,76 @@ IMPLIED.
     }
 
     function addQolButtons() {
-        const dateSource = document.querySelector('[data-id="770966"]');
+        const dateSource = document?.querySelector('[data-id="770966"]');
+        if (!dateSource) return;
         const dateTargetInput = document.querySelector('[data-id="770968"] input')
         const sumSource = document.querySelector('[data-id="771808"]');
-        const sumTargetInput = document.querySelector('[data-id="771810"] input');
+        const sumSourceInput = sumSource.querySelector('input');
+        const sumTarget = document.querySelector('[data-id="771810"]');
+        const sumTargetInput = sumTarget.querySelector('input');
         const budgetInput = document.querySelector('input[name="lead[PRICE]"]');
+
+        const setValueAndApply = (element, value) => {
+            return (event) => {
+                event.preventDefault();  // Prevent the form submission to ajax
+                event.stopPropagation(); // Stop the event from propagating up the DOM
+                
+                element.value = value;
+                element.dispatchEvent(new Event('input', { bubbles: true }));
+            }
+        };
 
         if (dateSource && dateTargetInput && dateSource.querySelector('input').value) {
             if (dateSource.querySelector('.qol-button')) return;
             dateSource.querySelector('.linked-form__field__value').style.setProperty('max-width', '150px');
-
-            const button1h = document.createElement('div');
-            button1h.textContent = '+1h';
-            button1h.classList.add('qol-button');
-
-            const button2_5h = document.createElement('div');
-            button2_5h.textContent = '+2.5h';
-            button2_5h.classList.add('qol-button');
-
-            const setupHourAdder = (hoursToAdd) => {
-                return (event) => {
-                    event.preventDefault();  // Prevent the form submission to ajax
-                    event.stopPropagation(); // Stop the event from propagating up the DOM
-
-                    const dateSourceValue = dateSource ? dateSource.querySelector('input').value : null;
-                    dateTargetInput.value = addHours(dateSourceValue, hoursToAdd);
-                    dateTargetInput.dispatchEvent(new Event('input', { bubbles: true }));
-                };
-            };
-
-            button1h.addEventListener('click', setupHourAdder(1));     // Adds 1 hour
-            button2_5h.addEventListener('click', setupHourAdder(2.5)); // Adds 2.5 hours
-
-            dateSource.appendChild(button1h);
-            dateSource.appendChild(button2_5h);
+            
+            const timeButtons = [1, 2.5]
+            timeButtons.forEach(button => {
+                const buttonElement = document.createElement('div');
+                buttonElement.textContent = `+${button}h`;
+                buttonElement.classList.add('qol-button');
+                buttonElement.addEventListener('click', (e) =>
+                    setValueAndApply(dateTargetInput, addHours(dateSource ? dateSource.querySelector('input').value : null, button))(e));
+                dateSource.appendChild(buttonElement);
+            });
         }
 
         if (sumSource && sumTargetInput && budgetInput) {
             if (sumSource.querySelector('.qol-button')) return;
             sumSource.querySelector('.linked-form__field__value').style.setProperty('max-width', '150px');
+            sumTarget.querySelector('.linked-form__field__value').style.setProperty('max-width', '150px');
 
             const autoComputeSumButton = document.createElement('div');
             autoComputeSumButton.innerHTML = '<svg class="svg-common--refresh-dims"><use xlink:href="#common--refresh"></use></svg>';
             autoComputeSumButton.classList.add('qol-button');
 
-            const autoComputeSum = () => {
-                return (event) => {
-                    event.preventDefault();  // Prevent the form submission to ajax
-                    event.stopPropagation(); // Stop the event from propagating up the DOM
-
-                    const sumSourceValue = sumSource ? document.querySelector('[name="CFV[771808]"]').value : 0;
-
-                    if (!sumSourceValue) {
-                        const sumSourceInput = sumSource.querySelector('input');
-                        sumSourceInput.value = 0;
-                        sumSourceInput.dispatchEvent(new Event('input', { bubbles: true }));
-                    }
-
-                    const budgetValue = budgetInput ? budgetInput.value : 0;
-                    sumTargetInput.value = budgetValue - sumSourceValue;
-                    sumTargetInput.dispatchEvent(new Event('input', { bubbles: true }));
-                }
+            const autoComputeSource = () => {
+                const sumSourceValue = sumSource ? sumSourceInput.value : 0;
+                return !sumSourceValue ? 0 : sumSourceValue;
             }
-            autoComputeSumButton.addEventListener('click', autoComputeSum());
-            sumSource.appendChild(autoComputeSumButton);
+
+            const autoComputeSum = () => {
+                const budgetValue = budgetInput ? budgetInput.value : 0;
+                return budgetValue - autoComputeSource();
+            }
+
+            autoComputeSumButton.addEventListener('click', e => {
+                setValueAndApply(sumSourceInput, autoComputeSource())(e)
+                setValueAndApply(sumTargetInput, autoComputeSum())(e)
+            });
+            sumTarget.appendChild(autoComputeSumButton);
+
+            const percentageButtons = [50, 100]
+            percentageButtons.forEach(button => {
+                const buttonElement = document.createElement('div');
+                buttonElement.textContent = `${button}%`;
+                buttonElement.classList.add('qol-button');
+                buttonElement.addEventListener('click', e => {
+                    setValueAndApply(sumSourceInput, budgetInput.value * button / 100)(e);
+                    autoComputeSumButton.click();
+                });
+                sumSource.appendChild(buttonElement);
+            });
         }
     }
 
