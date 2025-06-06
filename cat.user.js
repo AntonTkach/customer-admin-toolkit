@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         Customer Admin Toolkit
 // @namespace    http://tampermonkey.net/
-// @version      0.6.2
+// @version      0.6.3
 // @description  Add QoL improvement to CRM
 // @author       Anton Tkach <anton.tkach.dev@gmail.com>
 // @include      https://*.kommo.com/todo/calendar/week/*
@@ -302,6 +302,7 @@ IMPLIED.
         const sumSourceInput = sumSource.querySelector('input');
         const sumTarget = document.querySelector('[data-id="771810"]');
         const sumTargetInput = sumTarget.querySelector('input');
+        const dateArrivalInput = document.querySelector('input[name="CFV[770714]"]');
         const budgetInput = document.querySelector('input[name="lead[PRICE]"]');
 
         const setValueAndApply = (element, value) => {
@@ -323,8 +324,10 @@ IMPLIED.
                 const buttonElement = document.createElement('div');
                 buttonElement.textContent = `+${button}h`;
                 buttonElement.classList.add('qol-button');
-                buttonElement.addEventListener('click', (e) =>
-                    setValueAndApply(dateTargetInput, addHours(dateSource ? dateSource.querySelector('input').value : null, button))(e));
+                buttonElement.addEventListener('click', (e) => {
+                    setValueAndApply(dateTargetInput, addHours(dateSource ? dateSource.querySelector('input').value : null, button))(e)
+                    setValueAndApply(dateArrivalInput, formatDatetime(strToDate(dateSource ? dateSource.querySelector('input').value : null)))(e)
+                });
                 dateSource.appendChild(buttonElement);
             });
         }
