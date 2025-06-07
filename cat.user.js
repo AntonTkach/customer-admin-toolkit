@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         Customer Admin Toolkit
 // @namespace    http://tampermonkey.net/
-// @version      0.6.3
+// @version      0.6.4
 // @description  Add QoL improvement to CRM
 // @author       Anton Tkach <anton.tkach.dev@gmail.com>
 // @include      https://*.kommo.com/todo/calendar/week/*
@@ -248,9 +248,14 @@ IMPLIED.
                 if (EXCLUSIONS.includes(eventType)) {
                     return;
                 }
-                event.style.backgroundColor = 
-                    `rgba(${colors[eventType].r}, ${colors[eventType].g}, \
-                    ${colors[eventType].b}, ${colors[eventType].a})`;
+
+                const bgColor = `rgba(${colors[eventType].r}, ${colors[eventType].g}, \
+                                 ${colors[eventType].b}, ${colors[eventType].a})`;
+                if (getComputedStyle(event).borderColor == 'rgb(199, 80, 80)') {
+                    event.style.backgroundImage = `repeating-linear-gradient(45deg, ${bgColor}, ${bgColor} 10px, transparent 10px, transparent 14px)`
+                } else {
+                    event.style.backgroundColor = bgColor
+                }
                 // https://www.w3.org/TR/WCAG20/#relativeluminancedef
                 if (0.299 * colors[eventType].r + 0.587 * colors[eventType].g + 0.114 * colors[eventType].b > 186) {
                     event.style.color = 'rgb(0, 0, 0)';
