@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         Customer Admin Toolkit
 // @namespace    http://tampermonkey.net/
-// @version      0.7.0
+// @version      0.7.1.0
 // @description  Add QoL improvement to CRM
 // @author       Anton Tkach <anton.tkach.dev@gmail.com>
 // @include      https://*.kommo.com/todo/calendar/week/*
@@ -513,32 +513,31 @@ IMPLIED.
         lead.addQolButtons();
     };
     
-    let debounceTimeout;
-    const debounce = (func, delay) => {
-        return (...args) => {
-            clearTimeout(debounceTimeout);
-            debounceTimeout = setTimeout(() => {
-                func(...args);
-            }, delay);
-        };
-    };
-
-    let isSettingsInitialized = false
-    const observer = new MutationObserver(debounce(() => {
-        changeEventColors();
-        addQolButtons();
-
-        if (!isSettingsInitialized) {
-            initializeSettings();
-            isSettingsInitialized = true;
+    let lastPath = location.pathname;
+    setInterval(() => {
+        if (location.pathname !== lastPath) {
+            lastPath = location.pathname;
+            ensureInitialized(); // Re-init on internal navigation
         }
-    }, 50));
+    }, 250);
 
-    observer.observe(document.body, {
-        childList: true,
-        subtree: true
-    });
-    createSettingsPanel();
-    changeEventColors();
-    addQolButtons();
+    function safeInit() {
+        changeEventColors();
+        bindLeadListeners();
+        createSettingsPanel();
+        initializeSettings();
+    }
+
+    // Retry if elements aren't present
+    function ensureInitialized(retries = 10, delay = 200) {
+        if (document.querySelector('[name="lead[PRICE]') ||
+                document.querySelector('a.fc-time-grid-event:not(.fc-completed)')
+        ) {
+            safeInit();
+        } else if (retries > 0) {
+            setTimeout(() => ensureInitialized(retries - 1, delay), delay);
+        }
+    }
+
+    ensureInitialized();
 })();
