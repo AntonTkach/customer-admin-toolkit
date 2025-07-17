@@ -1,12 +1,13 @@
 // ==UserScript==
 // @name         Customer Admin Toolkit
 // @namespace    http://tampermonkey.net/
-// @version      0.7.1.1
+// @version      0.7.2.0
 // @description  Add QoL improvement to CRM
 // @author       Anton Tkach <anton.tkach.dev@gmail.com>
 // @include      https://*.kommo.com/todo/calendar/week/*
 // @include      https://*.kommo.com/todo/calendar/day/*
 // @include      https://*.kommo.com/leads/detail/*
+// @include      https://*.kommo.com/leads/add/*
 // @resource     INTERNAL_CSS https://raw.githubusercontent.com/AntonTkach/customer-admin-toolkit/master/style.css
 // @updateURL    https://raw.githubusercontent.com/AntonTkach/customer-admin-toolkit/master/cat.user.js
 // @downloadURL  https://raw.githubusercontent.com/AntonTkach/customer-admin-toolkit/master/cat.user.js
@@ -324,14 +325,17 @@ IMPLIED.
             { name: 'VIP',        price: 720, dayOfWeek: 0b1000001, defaultPlayerAmount: 30 },
         ]
 
+        // Order reverset to accomodate Array.find()
         const playersPriceTable = [
-            { price: 25, dayOfWeek: 0b0111110 },
-            { price: 22, dayOfWeek: 0b0111110 },
-            { price: 20, dayOfWeek: 0b0111110 },
-            { price: 30, dayOfWeek: 0b1000001 },
-            { price: 27, dayOfWeek: 0b1000001 },
-            { price: 25, dayOfWeek: 0b1000001 },
+            { price: 20, dayOfWeek: 0b0111110, minPlayerAmount: 6 }, // 6+
+            { price: 22, dayOfWeek: 0b0111110, minPlayerAmount: 3 }, // 3-5
+            { price: 25, dayOfWeek: 0b0111110, minPlayerAmount: 1 }, // 1-2
+            { price: 25, dayOfWeek: 0b1000001, minPlayerAmount: 6 }, // 6+
+            { price: 27, dayOfWeek: 0b1000001, minPlayerAmount: 3 }, // 3-5
+            { price: 30, dayOfWeek: 0b1000001, minPlayerAmount: 1 }, // 1-2
         ]
+
+        const watchedInputs = new WeakSet();
 
         const lead = {
             budget: 0,
@@ -345,6 +349,8 @@ IMPLIED.
                     document.querySelector('input[name="CFV[771816]"]').click();
                     return;
                 }
+                this.playerAmount = 0;
+                this.getPlayerAmount();
 
                 let tariffPrice = 0;
                 let tariffPlayerAmount = 0;
@@ -353,18 +359,19 @@ IMPLIED.
                     [tariffPrice, tariffPlayerAmount] = [match.price || 0, match.defaultPlayerAmount]
                     if (!this.playerAmount) {
                         this.playerAmount = tariffPlayerAmount;
+                        this.setPlayerAmount(tariffPlayerAmount)
                     }
                 }
                 let playersPrice = 0;
                 if (!tariffPrice) {
-                    const localPrice = playersPriceTable.find(p => p.dayOfWeek & 1 << new Date().getDay())?.price || 0; 
+                    const localPrice = playersPriceTable.find(p => (p.dayOfWeek & 1 << new Date().getDay()) && this.playerAmount >= p.minPlayerAmount)?.price || 0; 
                     playersPrice = this.playerAmount * localPrice;
                 }
                 this.budget = tariffPrice + playersPrice;
                 this.menu.forEach(m => { this.budget += m.price });
 
                 const budgetInput = document.querySelector('#lead_card_budget');
-                
+
                 manualSetValueAndApply(budgetInput, this.budget)
                 document.querySelector('#autoComputeSumButton').click();
             },
@@ -408,8 +415,10 @@ IMPLIED.
                 if (!playerAmountElement) { return }
                 this.playerAmount = playerAmountElement?.querySelector('input').value ?? 0;
                 this.playerAmount = parseInt(String(this.playerAmount).match(/\d+/)?.[0]) || 0; // allways an Integer
-                this.setBudget()
-                this.setLeadName()
+            },
+
+            setPlayerAmount(newAmount){
+                manualSetValueAndApply(document?.querySelector('[data-id="768812"]'), newAmount);
             },
 
             setLeadName(){
@@ -439,17 +448,34 @@ IMPLIED.
                     dateSource.querySelector('.linked-form__field__value').style.setProperty('max-width', '150px');
 
                     const timeButtons = [1, 2.5]
-                    timeButtons.forEach(button => {
+                    timeButtons.forEach(buttonLabel => {
                         const buttonElement = document.createElement('div');
-                        buttonElement.textContent = `+${button}h`;
+                        buttonElement.textContent = `+${buttonLabel}h`;
                         buttonElement.classList.add('qol-button');
                         buttonElement.addEventListener('click', (e) => {
-                            setValueAndApply(dateTargetInput, addHours(dateSource ? dateSource.querySelector('input').value : null, button))(e)
+                            setValueAndApply(dateTargetInput, addHours(dateSource ? dateSource.querySelector('input').value : null, buttonLabel))(e)
                             setValueAndApply(dateArrivalInput, formatDatetime(strToDate(dateSource ? dateSource.querySelector('input').value : null)))(e)
-                            this.setLeadName();
+                            if (buttonLabel === 1) { // integer 1
+                                document.querySelector('input[name="CFV[771816]"]').click();
+                            }
                         });
                         dateSource.appendChild(buttonElement);
                     });
+                } else if (dateSource) {
+                  const dateSourceInput = dateSource.querySelector('input')
+                  if (watchedInputs.has(dateSourceInput)) { return };
+                  watchedInputs.add(dateSourceInput);
+                  dateSourceInput.addEventListener('focus', () => { 
+                      const check = () => {
+                        const isHidden = getComputedStyle(document.querySelector('.kalendae.k-floating')).display == 'none';
+                        if (isHidden && dateSource.querySelector('input').value) {
+                            this.addQolButtons();
+                            return;
+                        }
+                        setTimeout(check, 200);
+                      };
+                      check();
+                  });
                 }
 
                 if (sumSource && sumTargetInput && budgetInput) {
@@ -494,13 +520,15 @@ IMPLIED.
         };
 
         const multiselectRoot = document?.querySelector('[data-id="791446"]');
+        if (!multiselectRoot) return;
         multiselectRoot.addEventListener('change', e => {
             lead.getMenu();
         });
 
         const tariffField = document?.querySelector('[data-id="771816"]');
+        if (!tariffField) return;
         tariffField.querySelectorAll('input[type="radio"]').forEach(radio => {
-            radio.addEventListener('change', () => {
+            radio.addEventListener('click', () => {
                 if (radio.checked) {
                     lead.getTariff(radio);
                 }
@@ -508,15 +536,19 @@ IMPLIED.
         });
 
         const playerAmountField = document?.querySelector('[data-id="768812"]');
-        playerAmountField.addEventListener('change', () => { lead.getPlayerAmount() });
+        if (!playerAmountField) return;
+        playerAmountField.addEventListener('change', () => {
+            lead.setBudget()
+            lead.setLeadName()
+        });
 
         lead.addQolButtons();
     };
     
-    let lastPath = location.pathname;
+    let lastURL = location.href;
     setInterval(() => {
-        if (location.pathname !== lastPath) {
-            lastPath = location.pathname;
+        if (location.href !== lastURL) {
+            lastURL = location.href;
             ensureInitialized(); // Re-init on internal navigation
         }
     }, 250);
