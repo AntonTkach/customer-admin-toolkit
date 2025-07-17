@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         Customer Admin Toolkit
 // @namespace    http://tampermonkey.net/
-// @version      0.7.1.0
+// @version      0.7.1.1
 // @description  Add QoL improvement to CRM
 // @author       Anton Tkach <anton.tkach.dev@gmail.com>
 // @include      https://*.kommo.com/todo/calendar/week/*
@@ -199,7 +199,7 @@ IMPLIED.
         }
 
         // [\s\S]*? is used to match any character including newlines, non-greedily.
-        const regex = /APP\.constant\s*\(\s*['"]task_types['"]\s*,\s*(\{[\s\S]*?\})\s*\)\s*;/;
+        const regex = /APP\.constant\s*\(\s*['"]task_types['"]\s*,\s*(\{[\s\S]*?\})\s*(?:,\s*\{.*?\})?\s*\)\s*;/;
         const match = targetScriptContent.match(regex);
 
         if (!match || !match[1]) {
