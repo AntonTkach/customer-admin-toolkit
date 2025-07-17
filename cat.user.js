@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         Customer Admin Toolkit
 // @namespace    http://tampermonkey.net/
-// @version      0.6.4
+// @version      0.7.0
 // @description  Add QoL improvement to CRM
 // @author       Anton Tkach <anton.tkach.dev@gmail.com>
 // @include      https://*.kommo.com/todo/calendar/week/*
@@ -299,83 +299,220 @@ IMPLIED.
         return formatDatetime(datetime)
     }
 
-    function addQolButtons() {
-        const dateSource = document?.querySelector('[data-id="770966"]');
-        if (!dateSource) return;
-        const dateTargetInput = document.querySelector('[data-id="770968"] input')
-        const sumSource = document.querySelector('[data-id="771808"]');
-        const sumSourceInput = sumSource.querySelector('input');
-        const sumTarget = document.querySelector('[data-id="771810"]');
-        const sumTargetInput = sumTarget.querySelector('input');
-        const dateArrivalInput = document.querySelector('input[name="CFV[770714]"]');
-        const budgetInput = document.querySelector('input[name="lead[PRICE]"]');
+    function setValueAndApply(element, value){
+        return (event) => {
+            event.preventDefault();  // Prevent the form submission to ajax
+            event.stopPropagation(); // Stop the event from propagating up the DOM
+            
+            element.value = value;
+            element.dispatchEvent(new Event('input', { bubbles: true }));
+        }
+    };
 
-        const setValueAndApply = (element, value) => {
-            return (event) => {
-                event.preventDefault();  // Prevent the form submission to ajax
-                event.stopPropagation(); // Stop the event from propagating up the DOM
+    function manualSetValueAndApply(element, value) {
+        setValueAndApply(element, value)(new Event('manual'));
+    }
+
+    function bindLeadListeners() {
+        const tariffPriceTable = [
+            // dayOfWeek is a byteword, cause we are only storing positional data aka Tuesday is 2 == 0b0010000
+            { name: 'Adventure',  price: 250, dayOfWeek: 0b0111110, defaultPlayerAmount: 10 },
+            { name: 'EPIC',       price: 450, dayOfWeek: 0b0111110, defaultPlayerAmount: 20 },
+            { name: 'VIP',        price: 625, dayOfWeek: 0b0111110, defaultPlayerAmount: 30 },
+            { name: 'Adventure',  price: 320, dayOfWeek: 0b1000001, defaultPlayerAmount: 10 },
+            { name: 'EPIC',       price: 520, dayOfWeek: 0b1000001, defaultPlayerAmount: 20 },
+            { name: 'VIP',        price: 720, dayOfWeek: 0b1000001, defaultPlayerAmount: 30 },
+        ]
+
+        const playersPriceTable = [
+            { price: 25, dayOfWeek: 0b0111110 },
+            { price: 22, dayOfWeek: 0b0111110 },
+            { price: 20, dayOfWeek: 0b0111110 },
+            { price: 30, dayOfWeek: 0b1000001 },
+            { price: 27, dayOfWeek: 0b1000001 },
+            { price: 25, dayOfWeek: 0b1000001 },
+        ]
+
+        const lead = {
+            budget: 0,
+            playerAmount: 0,
+            tariffName: null,
+            menu: [],
+            // getters read UI to lead object, setters update UI from lead object
+
+            setBudget() {
+                if (!this.tariffName) {
+                    document.querySelector('input[name="CFV[771816]"]').click();
+                    return;
+                }
+
+                let tariffPrice = 0;
+                let tariffPlayerAmount = 0;
+                if (this.tariffName != 'No tariff') {
+                    const match = tariffPriceTable.find(t => t.name == this.tariffName && t.dayOfWeek & 1 << new Date().getDay());
+                    [tariffPrice, tariffPlayerAmount] = [match.price || 0, match.defaultPlayerAmount]
+                    if (!this.playerAmount) {
+                        this.playerAmount = tariffPlayerAmount;
+                    }
+                }
+                let playersPrice = 0;
+                if (!tariffPrice) {
+                    const localPrice = playersPriceTable.find(p => p.dayOfWeek & 1 << new Date().getDay())?.price || 0; 
+                    playersPrice = this.playerAmount * localPrice;
+                }
+                this.budget = tariffPrice + playersPrice;
+                this.menu.forEach(m => { this.budget += m.price });
+
+                const budgetInput = document.querySelector('#lead_card_budget');
                 
-                element.value = value;
-                element.dispatchEvent(new Event('input', { bubbles: true }));
+                manualSetValueAndApply(budgetInput, this.budget)
+                document.querySelector('#autoComputeSumButton').click();
+            },
+
+            getTariff(radio) {
+                this.tariffName = radio.closest('label')?.querySelector('.control-radio-label-text')?.textContent.trim();
+                if (this.tariffName.includes('VIP')) {
+                    this.tariffName = this.tariffName.split(' ')[0];
+                }
+                this.setBudget();
+                this.setLeadName();
+            },
+
+            getMenu(){
+                const multiselect = document?.querySelector('[data-id="791446"]');
+                if (!multiselect) { return }
+
+                function getAllSelectedMultiselectItems(rootElement) {
+                    const selectedLabels = Array.from(
+                        rootElement.querySelectorAll('.js-item-checkbox:checked')
+                    ).map(checkbox => {
+                        const label = checkbox.closest('.checkboxes_dropdown__item')?.querySelector('.checkboxes_dropdown__label_title');
+                        return label?.textContent.trim();
+                    }).filter(Boolean);
+
+                    return selectedLabels;
+                }
+
+                const selectedOptions = getAllSelectedMultiselectItems(multiselect);
+                selectedOptions.forEach((item, i) => {
+                    const [name, price] = item.split('-').map(l => l.trim());
+                    selectedOptions[i] = { name, price: parseInt(price) };
+                });
+                this.menu = selectedOptions;
+
+                this.setBudget();
+            },
+
+            getPlayerAmount(){
+                const playerAmountElement = document?.querySelector('[data-id="768812"]');
+                if (!playerAmountElement) { return }
+                this.playerAmount = playerAmountElement?.querySelector('input').value ?? 0;
+                this.playerAmount = parseInt(String(this.playerAmount).match(/\d+/)?.[0]) || 0; // allways an Integer
+                this.setBudget()
+                this.setLeadName()
+            },
+
+            setLeadName(){
+                const leadName = document?.querySelector('#person_n');
+                if (!leadName) { return }
+                const dateSourceValue = document?.querySelector('[data-id="770966"] input').value;
+                const [date, timeFrom] = dateSourceValue.split(' ');
+                const dateTargetValue = document.querySelector('[data-id="770968"] input').value;
+                const [, timeTo] = dateTargetValue.split(' ');
+                const leadNameCombined = `${date.slice(0, 5)} ${timeFrom}-${timeTo} ${this.playerAmount} ${this.tariffName == "No tariff" ? 'players' : `pl ${this.tariffName}`}`
+                manualSetValueAndApply(leadName, leadNameCombined)
+            },
+
+            addQolButtons() {
+                const dateSource = document?.querySelector('[data-id="770966"]');
+                if (!dateSource) return;
+                const dateTargetInput = document.querySelector('[data-id="770968"] input')
+                const sumSource = document.querySelector('[data-id="771808"]');
+                const sumSourceInput = sumSource.querySelector('input');
+                const sumTarget = document.querySelector('[data-id="771810"]');
+                const sumTargetInput = sumTarget.querySelector('input');
+                const dateArrivalInput = document.querySelector('input[name="CFV[770714]"]');
+                const budgetInput = document.querySelector('input[name="lead[PRICE]"]');
+
+                if (dateSource && dateTargetInput && dateSource.querySelector('input').value) {
+                    if (dateSource.querySelector('.qol-button')) return;
+                    dateSource.querySelector('.linked-form__field__value').style.setProperty('max-width', '150px');
+
+                    const timeButtons = [1, 2.5]
+                    timeButtons.forEach(button => {
+                        const buttonElement = document.createElement('div');
+                        buttonElement.textContent = `+${button}h`;
+                        buttonElement.classList.add('qol-button');
+                        buttonElement.addEventListener('click', (e) => {
+                            setValueAndApply(dateTargetInput, addHours(dateSource ? dateSource.querySelector('input').value : null, button))(e)
+                            setValueAndApply(dateArrivalInput, formatDatetime(strToDate(dateSource ? dateSource.querySelector('input').value : null)))(e)
+                            this.setLeadName();
+                        });
+                        dateSource.appendChild(buttonElement);
+                    });
+                }
+
+                if (sumSource && sumTargetInput && budgetInput) {
+                    if (sumSource.querySelector('.qol-button')) return;
+                    sumSource.querySelector('.linked-form__field__value').style.setProperty('max-width', '150px');
+                    sumTarget.querySelector('.linked-form__field__value').style.setProperty('max-width', '150px');
+
+                    const autoComputeSumButton = document.createElement('div');
+                    autoComputeSumButton.id = 'autoComputeSumButton';
+                    autoComputeSumButton.innerHTML = '<svg class="svg-common--refresh-dims"><use xlink:href="#common--refresh"></use></svg>';
+                    autoComputeSumButton.classList.add('qol-button');
+
+                    const autoComputeSource = () => {
+                        const sumSourceValue = sumSource ? sumSourceInput.value : 0;
+                        return !sumSourceValue ? 0 : sumSourceValue;
+                    }
+
+                    const autoComputeSum = () => {
+                        const budgetValue = budgetInput ? budgetInput.value : 0;
+                        return budgetValue - autoComputeSource();
+                    }
+
+                    autoComputeSumButton.addEventListener('click', e => {
+                        setValueAndApply(sumSourceInput, autoComputeSource())(e)
+                        setValueAndApply(sumTargetInput, autoComputeSum())(e)
+                    });
+                    sumTarget.appendChild(autoComputeSumButton);
+
+                    const percentageButtons = [50, 100]
+                    percentageButtons.forEach(button => {
+                        const buttonElement = document.createElement('div');
+                        buttonElement.textContent = `${button}%`;
+                        buttonElement.classList.add('qol-button');
+                        buttonElement.addEventListener('click', e => {
+                            setValueAndApply(sumSourceInput, budgetInput.value * button / 100)(e);
+                            autoComputeSumButton.click();
+                        });
+                        sumSource.appendChild(buttonElement);
+                    });
+                }
             }
         };
 
-        if (dateSource && dateTargetInput && dateSource.querySelector('input').value) {
-            if (dateSource.querySelector('.qol-button')) return;
-            dateSource.querySelector('.linked-form__field__value').style.setProperty('max-width', '150px');
-            
-            const timeButtons = [1, 2.5]
-            timeButtons.forEach(button => {
-                const buttonElement = document.createElement('div');
-                buttonElement.textContent = `+${button}h`;
-                buttonElement.classList.add('qol-button');
-                buttonElement.addEventListener('click', (e) => {
-                    setValueAndApply(dateTargetInput, addHours(dateSource ? dateSource.querySelector('input').value : null, button))(e)
-                    setValueAndApply(dateArrivalInput, formatDatetime(strToDate(dateSource ? dateSource.querySelector('input').value : null)))(e)
-                });
-                dateSource.appendChild(buttonElement);
+        const multiselectRoot = document?.querySelector('[data-id="791446"]');
+        multiselectRoot.addEventListener('change', e => {
+            lead.getMenu();
+        });
+
+        const tariffField = document?.querySelector('[data-id="771816"]');
+        tariffField.querySelectorAll('input[type="radio"]').forEach(radio => {
+            radio.addEventListener('change', () => {
+                if (radio.checked) {
+                    lead.getTariff(radio);
+                }
             });
-        }
+        });
 
-        if (sumSource && sumTargetInput && budgetInput) {
-            if (sumSource.querySelector('.qol-button')) return;
-            sumSource.querySelector('.linked-form__field__value').style.setProperty('max-width', '150px');
-            sumTarget.querySelector('.linked-form__field__value').style.setProperty('max-width', '150px');
+        const playerAmountField = document?.querySelector('[data-id="768812"]');
+        playerAmountField.addEventListener('change', () => { lead.getPlayerAmount() });
 
-            const autoComputeSumButton = document.createElement('div');
-            autoComputeSumButton.innerHTML = '<svg class="svg-common--refresh-dims"><use xlink:href="#common--refresh"></use></svg>';
-            autoComputeSumButton.classList.add('qol-button');
-
-            const autoComputeSource = () => {
-                const sumSourceValue = sumSource ? sumSourceInput.value : 0;
-                return !sumSourceValue ? 0 : sumSourceValue;
-            }
-
-            const autoComputeSum = () => {
-                const budgetValue = budgetInput ? budgetInput.value : 0;
-                return budgetValue - autoComputeSource();
-            }
-
-            autoComputeSumButton.addEventListener('click', e => {
-                setValueAndApply(sumSourceInput, autoComputeSource())(e)
-                setValueAndApply(sumTargetInput, autoComputeSum())(e)
-            });
-            sumTarget.appendChild(autoComputeSumButton);
-
-            const percentageButtons = [50, 100]
-            percentageButtons.forEach(button => {
-                const buttonElement = document.createElement('div');
-                buttonElement.textContent = `${button}%`;
-                buttonElement.classList.add('qol-button');
-                buttonElement.addEventListener('click', e => {
-                    setValueAndApply(sumSourceInput, budgetInput.value * button / 100)(e);
-                    autoComputeSumButton.click();
-                });
-                sumSource.appendChild(buttonElement);
-            });
-        }
-    }
-
+        lead.addQolButtons();
+    };
+    
     let debounceTimeout;
     const debounce = (func, delay) => {
         return (...args) => {
