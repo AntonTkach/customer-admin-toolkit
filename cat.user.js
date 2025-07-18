@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         Customer Admin Toolkit
 // @namespace    http://tampermonkey.net/
-// @version      0.7.3.0
+// @version      0.7.4.0
 // @description  Add QoL improvement to CRM
 // @author       Anton Tkach <anton.tkach.dev@gmail.com>
 // @include      https://*.kommo.com/todo/calendar/week/*
@@ -586,4 +586,27 @@ IMPLIED.
     }
 
     ensureInitialized();
+
+    let debounceTimeout;
+    const debounce = (func, delay) => {
+        return (...args) => {
+            clearTimeout(debounceTimeout);
+            debounceTimeout = setTimeout(() => {
+                func(...args);
+            }, delay);
+        };
+    };
+
+    const observer = new MutationObserver(debounce(() => {
+        if (!/\/todo\/calendar\/(week|day)\//.test(location.pathname)) return;
+        changeEventColors();
+        createSettingsPanel();
+        initializeSettings();
+    }, 50));
+
+    observer.observe(document.body, {
+        childList: true,
+        subtree: true
+    });
+
 })();
