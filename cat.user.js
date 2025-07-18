@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         Customer Admin Toolkit
 // @namespace    http://tampermonkey.net/
-// @version      0.7.2.0
+// @version      0.7.3.0
 // @description  Add QoL improvement to CRM
 // @author       Anton Tkach <anton.tkach.dev@gmail.com>
 // @include      https://*.kommo.com/todo/calendar/week/*
@@ -352,10 +352,14 @@ IMPLIED.
                 this.playerAmount = 0;
                 this.getPlayerAmount();
 
+                const fullDate = `${this.getDate('[data-id="770966"] input').date}.${new Date().getFullYear()}`
+                const weekday = new Date(fullDate.split('.').reverse().join('-')).getDay() || new Date().getDay();
+
+
                 let tariffPrice = 0;
                 let tariffPlayerAmount = 0;
                 if (this.tariffName != 'No tariff') {
-                    const match = tariffPriceTable.find(t => t.name == this.tariffName && t.dayOfWeek & 1 << new Date().getDay());
+                    const match = tariffPriceTable.find(t => t.name == this.tariffName && t.dayOfWeek & 1 << weekday);
                     [tariffPrice, tariffPlayerAmount] = [match.price || 0, match.defaultPlayerAmount]
                     if (!this.playerAmount) {
                         this.playerAmount = tariffPlayerAmount;
@@ -364,7 +368,7 @@ IMPLIED.
                 }
                 let playersPrice = 0;
                 if (!tariffPrice) {
-                    const localPrice = playersPriceTable.find(p => (p.dayOfWeek & 1 << new Date().getDay()) && this.playerAmount >= p.minPlayerAmount)?.price || 0; 
+                    const localPrice = playersPriceTable.find(p => (p.dayOfWeek & 1 << weekday) && this.playerAmount >= p.minPlayerAmount)?.price || 0; 
                     playersPrice = this.playerAmount * localPrice;
                 }
                 this.budget = tariffPrice + playersPrice;
@@ -383,6 +387,17 @@ IMPLIED.
                 }
                 this.setBudget();
                 this.setLeadName();
+            },
+
+            getDate(selector) {
+                const dateInput = document?.querySelector(selector);
+                const dateInputValue = dateInput.value.trim();
+                const [date, time] = dateInputValue.split(' ');
+
+                return {
+                    date: date?.slice(0, 5) || '',
+                    time: time || ''
+                };
             },
 
             getMenu(){
@@ -425,10 +440,9 @@ IMPLIED.
                 const leadName = document?.querySelector('#person_n');
                 if (!leadName) { return }
                 const dateSourceValue = document?.querySelector('[data-id="770966"] input').value;
-                const [date, timeFrom] = dateSourceValue.split(' ');
-                const dateTargetValue = document.querySelector('[data-id="770968"] input').value;
-                const [, timeTo] = dateTargetValue.split(' ');
-                const leadNameCombined = `${date.slice(0, 5)} ${timeFrom}-${timeTo} ${this.playerAmount} ${this.tariffName == "No tariff" ? 'players' : `pl ${this.tariffName}`}`
+                const { date, time: timeFrom } = this.getDate('[data-id="770966"] input')
+                const { time: timeTo } = this.getDate('[data-id="770968"] input')
+                const leadNameCombined = `${date} ${timeFrom}-${timeTo} ${this.playerAmount} ${this.tariffName == "No tariff" ? 'players' : `pl ${this.tariffName}`}`
                 manualSetValueAndApply(leadName, leadNameCombined)
             },
 
