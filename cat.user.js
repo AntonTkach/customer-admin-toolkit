@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         Customer Admin Toolkit
 // @namespace    http://tampermonkey.net/
-// @version      0.7.4.0
+// @version      0.7.4.1
 // @description  Add QoL improvement to CRM
 // @author       Anton Tkach <anton.tkach.dev@gmail.com>
 // @include      https://*.kommo.com/todo/calendar/week/*
@@ -353,7 +353,7 @@ IMPLIED.
                 this.getPlayerAmount();
 
                 const fullDate = `${this.getDate('[data-id="770966"] input').date}.${new Date().getFullYear()}`
-                const weekday = new Date(fullDate.split('.').reverse().join('-')).getDay() || new Date().getDay();
+                const weekday = new Date(fullDate.split('.').reverse().join('-')).getDay() ?? new Date().getDay();
 
 
                 let tariffPrice = 0;
@@ -368,7 +368,7 @@ IMPLIED.
                 }
                 let playersPrice = 0;
                 if (!tariffPrice) {
-                    const localPrice = playersPriceTable.find(p => (p.dayOfWeek & 1 << weekday) && this.playerAmount >= p.minPlayerAmount)?.price || 0; 
+                    const localPrice = playersPriceTable.find(p => (p.dayOfWeek & 1 << weekday) && this.playerAmount >= p.minPlayerAmount)?.price ?? 0; 
                     playersPrice = this.playerAmount * localPrice;
                 }
                 this.budget = tariffPrice + playersPrice;
