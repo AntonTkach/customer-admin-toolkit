@@ -1,13 +1,10 @@
 // ==UserScript==
 // @name         Customer Admin Toolkit
 // @namespace    http://tampermonkey.net/
-// @version      0.7.4.1
+// @version      0.7.5.0
 // @description  Add QoL improvement to CRM
 // @author       Anton Tkach <anton.tkach.dev@gmail.com>
-// @include      https://*.kommo.com/todo/calendar/week/*
-// @include      https://*.kommo.com/todo/calendar/day/*
-// @include      https://*.kommo.com/leads/detail/*
-// @include      https://*.kommo.com/leads/add/*
+// @match        https://*.kommo.com/*
 // @resource     INTERNAL_CSS https://raw.githubusercontent.com/AntonTkach/customer-admin-toolkit/master/style.css
 // @updateURL    https://raw.githubusercontent.com/AntonTkach/customer-admin-toolkit/master/cat.user.js
 // @downloadURL  https://raw.githubusercontent.com/AntonTkach/customer-admin-toolkit/master/cat.user.js
