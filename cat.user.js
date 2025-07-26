@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         Customer Admin Toolkit
 // @namespace    http://tampermonkey.net/
-// @version      0.7.5.0
+// @version      0.7.5.1
 // @description  Add QoL improvement to CRM
 // @author       Anton Tkach <anton.tkach.dev@gmail.com>
 // @match        https://*.kommo.com/*
@@ -436,11 +436,18 @@ IMPLIED.
             setLeadName(){
                 const leadName = document?.querySelector('#person_n');
                 if (!leadName) { return }
-                const dateSourceValue = document?.querySelector('[data-id="770966"] input').value;
                 const { date, time: timeFrom } = this.getDate('[data-id="770966"] input')
                 const { time: timeTo } = this.getDate('[data-id="770968"] input')
                 const leadNameCombined = `${date} ${timeFrom}-${timeTo} ${this.playerAmount} ${this.tariffName == "No tariff" ? 'players' : `pl ${this.tariffName}`}`
                 manualSetValueAndApply(leadName, leadNameCombined)
+            },
+
+            createQolButton(parent, label, handler){
+                const btn = document.createElement('div');
+                btn.textContent = label;
+                btn.classList.add('qol-button');
+                btn.addEventListener('click', handler);
+                parent.appendChild(btn);
             },
 
             addQolButtons() {
@@ -460,17 +467,13 @@ IMPLIED.
 
                     const timeButtons = [1, 2.5]
                     timeButtons.forEach(buttonLabel => {
-                        const buttonElement = document.createElement('div');
-                        buttonElement.textContent = `+${buttonLabel}h`;
-                        buttonElement.classList.add('qol-button');
-                        buttonElement.addEventListener('click', (e) => {
+                        this.createQolButton(dateSource, `+${buttonLabel}h`, (e) => {
                             setValueAndApply(dateTargetInput, addHours(dateSource ? dateSource.querySelector('input').value : null, buttonLabel))(e)
                             setValueAndApply(dateArrivalInput, formatDatetime(strToDate(dateSource ? dateSource.querySelector('input').value : null)))(e)
                             if (buttonLabel === 1) { // integer 1
                                 document.querySelector('input[name="CFV[771816]"]').click();
                             }
                         });
-                        dateSource.appendChild(buttonElement);
                     });
                 } else if (dateSource) {
                   const dateSourceInput = dateSource.querySelector('input')
@@ -517,14 +520,10 @@ IMPLIED.
 
                     const percentageButtons = [50, 100]
                     percentageButtons.forEach(button => {
-                        const buttonElement = document.createElement('div');
-                        buttonElement.textContent = `${button}%`;
-                        buttonElement.classList.add('qol-button');
-                        buttonElement.addEventListener('click', e => {
+                        this.createQolButton(sumSource, `${button}%`, e => {
                             setValueAndApply(sumSourceInput, budgetInput.value * button / 100)(e);
                             autoComputeSumButton.click();
                         });
-                        sumSource.appendChild(buttonElement);
                     });
                 }
             }
