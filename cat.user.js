@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         Customer Admin Toolkit
 // @namespace    http://tampermonkey.net/
-// @version      0.7.5.2
+// @version      0.7.5.3
 // @description  Add QoL improvement to CRM
 // @author       Anton Tkach <anton.tkach.dev@gmail.com>
 // @match        https://*.kommo.com/*
@@ -301,7 +301,7 @@ IMPLIED.
         return (event) => {
             event.preventDefault();  // Prevent the form submission to ajax
             event.stopPropagation(); // Stop the event from propagating up the DOM
-            
+
             element.value = value;
             element.dispatchEvent(new Event('input', { bubbles: true }));
         }
@@ -369,6 +369,7 @@ IMPLIED.
                     playersPrice = this.playerAmount * localPrice;
                 }
                 this.budget = tariffPrice + playersPrice;
+                this.getMenu();
                 this.menu.forEach(m => { this.budget += m.price });
 
                 const budgetInput = document.querySelector('#lead_card_budget');
@@ -418,8 +419,6 @@ IMPLIED.
                     selectedOptions[i] = { name, price: parseInt(price) };
                 });
                 this.menu = selectedOptions;
-
-                this.setBudget();
             },
 
             getPlayerAmount(){
@@ -532,7 +531,7 @@ IMPLIED.
         const multiselectRoot = document?.querySelector('[data-id="791446"]');
         if (!multiselectRoot) return;
         multiselectRoot.addEventListener('change', e => {
-            lead.getMenu();
+            lead.setBudget();
         });
 
         const tariffField = document?.querySelector('[data-id="771816"]');
@@ -554,7 +553,7 @@ IMPLIED.
 
         lead.addQolButtons();
     };
-    
+
     let lastURL = location.href;
     setInterval(() => {
         if (location.href !== lastURL) {
