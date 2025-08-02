@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         Customer Admin Toolkit
 // @namespace    http://tampermonkey.net/
-// @version      0.7.5.3
+// @version      0.7.5.4
 // @description  Add QoL improvement to CRM
 // @author       Anton Tkach <anton.tkach.dev@gmail.com>
 // @match        https://*.kommo.com/*
@@ -313,23 +313,25 @@ IMPLIED.
 
     function bindLeadListeners() {
         const tariffPriceTable = [
-            // dayOfWeek is a byteword, cause we are only storing positional data aka Tuesday is 2 == 0b0010000
-            { name: 'Adventure',  price: 250, dayOfWeek: 0b0111100, defaultPlayerAmount: 10 },
-            { name: 'EPIC',       price: 450, dayOfWeek: 0b0111100, defaultPlayerAmount: 20 },
-            { name: 'VIP',        price: 625, dayOfWeek: 0b0111100, defaultPlayerAmount: 30 },
-            { name: 'Adventure',  price: 320, dayOfWeek: 0b1000011, defaultPlayerAmount: 10 },
-            { name: 'EPIC',       price: 520, dayOfWeek: 0b1000011, defaultPlayerAmount: 20 },
-            { name: 'VIP',        price: 720, dayOfWeek: 0b1000011, defaultPlayerAmount: 30 },
+            // dayOfWeek bitmask is a byteword, cause we are only storing positional data 
+            // aka Tuesday is 2 == 0b0000010 <= start from smallest bit
+            // Using EU convention: Mon=0, Tue=1, Wed=2, Thu=3, Fri=4, Sat=5, Sun=6
+            { name: 'Adventure',  price: 250, dayOfWeek: 0b0001111, defaultPlayerAmount: 10 },
+            { name: 'EPIC',       price: 450, dayOfWeek: 0b0001111, defaultPlayerAmount: 20 },
+            { name: 'VIP',        price: 625, dayOfWeek: 0b0001111, defaultPlayerAmount: 30 },
+            { name: 'Adventure',  price: 320, dayOfWeek: 0b1110000, defaultPlayerAmount: 10 },
+            { name: 'EPIC',       price: 520, dayOfWeek: 0b1110000, defaultPlayerAmount: 20 },
+            { name: 'VIP',        price: 720, dayOfWeek: 0b1110000, defaultPlayerAmount: 30 },
         ]
 
-        // Order reverset to accomodate Array.find()
+        // Order reversed to accommodate Array.find()
         const playersPriceTable = [
-            { price: 20, dayOfWeek: 0b0111100, minPlayerAmount: 6 }, // 6+
-            { price: 22, dayOfWeek: 0b0111100, minPlayerAmount: 3 }, // 3-5
-            { price: 25, dayOfWeek: 0b0111100, minPlayerAmount: 1 }, // 1-2
-            { price: 25, dayOfWeek: 0b1000011, minPlayerAmount: 6 }, // 6+
-            { price: 27, dayOfWeek: 0b1000011, minPlayerAmount: 3 }, // 3-5
-            { price: 30, dayOfWeek: 0b1000011, minPlayerAmount: 1 }, // 1-2
+            { price: 20, dayOfWeek: 0b0001111, minPlayerAmount: 6 }, // 6+  Mon-Thu
+            { price: 22, dayOfWeek: 0b0001111, minPlayerAmount: 3 }, // 3-5 Mon-Thu  
+            { price: 25, dayOfWeek: 0b0001111, minPlayerAmount: 1 }, // 1-2 Mon-Thu
+            { price: 25, dayOfWeek: 0b1110000, minPlayerAmount: 6 }, // 6+  Fri-Sun
+            { price: 27, dayOfWeek: 0b1110000, minPlayerAmount: 3 }, // 3-5 Fri-Sun
+            { price: 30, dayOfWeek: 0b1110000, minPlayerAmount: 1 }, // 1-2 Fri-Sun
         ]
 
         const watchedInputs = new WeakSet();
@@ -350,7 +352,9 @@ IMPLIED.
                 this.getPlayerAmount();
 
                 const fullDate = `${this.getDate('[data-id="770966"] input').date}.${new Date().getFullYear()}`
-                const weekday = new Date(fullDate.split('.').reverse().join('-')).getDay() ?? new Date().getDay();
+                const jsWeekday = new Date(fullDate.split('.').reverse().join('-')).getDay() ?? new Date().getDay();
+                // Convert US week (Sun=0) to EU week (Mon=0): (jsWeekday + 6) % 7
+                const weekday = (jsWeekday + 6) % 7;
 
 
                 let tariffPrice = 0;
