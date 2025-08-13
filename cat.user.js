@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         Customer Admin Toolkit
 // @namespace    http://tampermonkey.net/
-// @version      0.7.5.4
+// @version      0.7.6.0
 // @description  Add QoL improvement to CRM
 // @author       Anton Tkach <anton.tkach.dev@gmail.com>
 // @match        https://*.kommo.com/*
@@ -66,7 +66,7 @@ IMPLIED.
         { "settingsKey": "colorUpdateRate", "type": "switch", "description": "Task color update interval", 
           "values": [ "Always", "1h", "24h" ], "default": "24h" }
     ];
-    
+
     /**
      * Creates the settings panel with all the settings
      */
@@ -180,13 +180,13 @@ IMPLIED.
      * Extracts the task types and their corresponding colors
      * @returns {JSON} JSON of `{ "task type": { r, g, b, a} }` pairs
      */
-    function extractTaskTypeColors() {
+    async function extractTaskTypeColors() {
         const scripts = document.querySelectorAll('script');
         let targetScriptContent = null;
 
         const hex2rgba = (hex, alpha = 1) => {
             const [r, g, b] = hex.match(/\w\w/g).map(x => parseInt(x, 16));
-            return {r, g, b, a:alpha};
+            return { r, g, b, a: alpha };
         };
 
         for (const script of scripts) {
@@ -198,16 +198,60 @@ IMPLIED.
 
         // [\s\S]*? is used to match any character including newlines, non-greedily.
         const regex = /APP\.constant\s*\(\s*['"]task_types['"]\s*,\s*(\{[\s\S]*?\})\s*(?:,\s*\{.*?\})?\s*\)\s*;/;
-        const match = targetScriptContent.match(regex);
+        let objectString = null;
 
-        if (!match || !match[1]) {
-            console.warn("Could not extract the task_types object string using regex.");
-            return [];
+        if (targetScriptContent) {
+            const matchInline = targetScriptContent.match(regex);
+            if (matchInline && matchInline[1]) {
+                objectString = matchInline[1];
+            }
         }
 
-        const objectString = match[1];
-        let taskTypesData;
-        taskTypesData = JSON.parse(objectString);
+        // If not found inline, try to fetch external constants script
+        if (!objectString) {
+            try {
+                let externalUrl = null;
+                const externalScript = Array.from(document.querySelectorAll('script[src]'))
+                    .find(s => /custom-fields-and-types/i.test(s.getAttribute('src') || ''));
+                if (externalScript) {
+                    externalUrl = new URL(externalScript.getAttribute('src'), location.origin).href;
+                } else {
+                    const preloadLink = Array.from(document.querySelectorAll('link[rel="preload"][as="script"][href]'))
+                        .find(l => /custom-fields-and-types/i.test(l.getAttribute('href') || ''));
+                    if (preloadLink) {
+                        externalUrl = new URL(preloadLink.getAttribute('href'), location.origin).href;
+                    }
+                }
+
+                if (externalUrl) {
+                    const response = await fetch(externalUrl, { credentials: 'include', cache: 'no-store' });
+                    if (response.ok) {
+                        const jsText = await response.text();
+                        const matchExternal = jsText.match(regex);
+                        if (matchExternal && matchExternal[1]) {
+                            objectString = matchExternal[1];
+                        }
+                    } else {
+                        console.warn('Failed to fetch external constants script:', response.status, response.statusText);
+                    }
+                }
+            } catch (error) {
+                console.warn('Error while fetching external constants script:', error);
+            }
+        }
+
+        if (!objectString) {
+            console.warn("Could not extract the task_types object string using regex.");
+            return {};
+        }
+
+        let taskTypesData = {};
+        try {
+            taskTypesData = JSON.parse(objectString);
+        } catch (e) {
+            console.warn('Failed to parse task_types JSON:', e);
+            return {};
+        }
 
         const result = {};
         for (const key in taskTypesData) {
@@ -218,7 +262,7 @@ IMPLIED.
                 }
             }
         }
-      
+
         return result;
     }
 
@@ -226,36 +270,47 @@ IMPLIED.
      * Applies colors to events/tasks
      */
     function changeEventColors() {
-        const events = document.querySelectorAll('a.fc-time-grid-event:not(.fc-completed)');
-        let colors = {}
         const colorUpdateRate = GM_getValue('colorUpdateRate');
-        if (colorUpdateRate === 'Always' || Date.now() - GM_getValue('lastColorUpdate', 0) > parseInt(colorUpdateRate) * 3600 * 1000){
-            colors = extractTaskTypeColors()
-            GM_setValue('colors', JSON.stringify(colors));
-            GM_setValue('lastColorUpdate', Date.now());
+        if (colorUpdateRate === 'Always' || Date.now() - GM_getValue('lastColorUpdate', 0) > parseInt(colorUpdateRate) * 3600 * 1000) {
+            extractTaskTypeColors()
+                .then((colors) => {
+                    colors = colors || {};
+                    GM_setValue('colors', JSON.stringify(colors));
+                    GM_setValue('lastColorUpdate', Date.now());
+                    applyColors(colors);
+                })
+                .catch((e) => {
+                    console.warn('Failed to update colors from task types:', e);
+                    applyColors(JSON.parse(GM_getValue('colors')));
+                });
         } else {
-            colors = JSON.parse(GM_getValue('colors'))
+          applyColors(JSON.parse(GM_getValue('colors')));
         }
+    }
+
+    function applyColors(colors) {
+        const events = document.querySelectorAll('a.fc-time-grid-event:not(.fc-completed)');
         events.forEach(event => {
             const eventDiv = event.querySelector('div.fc-content[title]');
             if (eventDiv) {
                 const title = eventDiv.getAttribute('title');
                 // Check payment: 123 -> Check payment
-                const eventType = title.split(':')[0]
-                const EXCLUSIONS = ['Связаться', 'Бронь']
+                const eventType = title.split(':')[0];
+                const EXCLUSIONS = ['Связаться', 'Бронь'];
                 if (EXCLUSIONS.includes(eventType)) {
                     return;
                 }
+                const color = colors[eventType];
+                if (!color) return;
 
-                const bgColor = `rgba(${colors[eventType].r}, ${colors[eventType].g}, \
-                                 ${colors[eventType].b}, ${colors[eventType].a})`;
+                const bgColor = `rgba(${color.r}, ${color.g}, ${color.b}, ${color.a})`;
                 if (getComputedStyle(event).borderColor == 'rgb(199, 80, 80)') {
-                    event.style.backgroundImage = `repeating-linear-gradient(45deg, ${bgColor}, ${bgColor} 10px, transparent 10px, transparent 14px)`
+                    event.style.backgroundImage = `repeating-linear-gradient(45deg, ${bgColor}, ${bgColor} 10px, transparent 10px, transparent 14px)`;
                 } else {
-                    event.style.backgroundColor = bgColor
+                    event.style.backgroundColor = bgColor;
                 }
                 // https://www.w3.org/TR/WCAG20/#relativeluminancedef
-                if (0.299 * colors[eventType].r + 0.587 * colors[eventType].g + 0.114 * colors[eventType].b > 186) {
+                if (0.299 * color.r + 0.587 * color.g + 0.114 * color.b > 186) {
                     event.style.color = 'rgb(0, 0, 0)';
                 }
             }
@@ -313,7 +368,7 @@ IMPLIED.
 
     function bindLeadListeners() {
         const tariffPriceTable = [
-            // dayOfWeek bitmask is a byteword, cause we are only storing positional data 
+            // dayOfWeek bitmask is a byteword, cause we are only storing positional data
             // aka Tuesday is 2 == 0b0000010 <= start from smallest bit
             // Using EU convention: Mon=0, Tue=1, Wed=2, Thu=3, Fri=4, Sat=5, Sun=6
             { name: 'Adventure',  price: 250, dayOfWeek: 0b0001111, defaultPlayerAmount: 10 },
@@ -327,7 +382,7 @@ IMPLIED.
         // Order reversed to accommodate Array.find()
         const playersPriceTable = [
             { price: 20, dayOfWeek: 0b0001111, minPlayerAmount: 6 }, // 6+  Mon-Thu
-            { price: 22, dayOfWeek: 0b0001111, minPlayerAmount: 3 }, // 3-5 Mon-Thu  
+            { price: 22, dayOfWeek: 0b0001111, minPlayerAmount: 3 }, // 3-5 Mon-Thu
             { price: 25, dayOfWeek: 0b0001111, minPlayerAmount: 1 }, // 1-2 Mon-Thu
             { price: 25, dayOfWeek: 0b1110000, minPlayerAmount: 6 }, // 6+  Fri-Sun
             { price: 27, dayOfWeek: 0b1110000, minPlayerAmount: 3 }, // 3-5 Fri-Sun
@@ -599,8 +654,6 @@ IMPLIED.
     const observer = new MutationObserver(debounce(() => {
         if (!/\/todo\/calendar\/(week|day)\//.test(location.pathname)) return;
         changeEventColors();
-        createSettingsPanel();
-        initializeSettings();
     }, 50));
 
     observer.observe(document.body, {
