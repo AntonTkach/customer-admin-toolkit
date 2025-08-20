@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         Customer Admin Toolkit
 // @namespace    http://tampermonkey.net/
-// @version      0.7.6.0
+// @version      0.7.7.0
 // @description  Add QoL improvement to CRM
 // @author       Anton Tkach <anton.tkach.dev@gmail.com>
 // @match        https://*.kommo.com/*
@@ -587,6 +587,15 @@ IMPLIED.
             }
         };
 
+        const ensureQolButtonsAreDrawn = (retries = 10, delay = 200) => {
+            if (document.querySelector('.qol-button')) return;
+            lead.addQolButtons();
+            if (!document.querySelector('.qol-button') && retries > 0) {
+                setTimeout(() => ensureQolButtonsAreDrawn(retries - 1, delay), delay);
+            }
+        };
+        ensureQolButtonsAreDrawn();
+
         const multiselectRoot = document?.querySelector('[data-id="791446"]');
         if (!multiselectRoot) return;
         multiselectRoot.addEventListener('change', e => {
@@ -609,8 +618,6 @@ IMPLIED.
             lead.setBudget()
             lead.setLeadName()
         });
-
-        lead.addQolButtons();
     };
 
     let lastURL = location.href;
