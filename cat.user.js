@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         Customer Admin Toolkit
 // @namespace    http://tampermonkey.net/
-// @version      0.7.7.0
+// @version      0.7.7.2
 // @description  Add QoL improvement to CRM
 // @author       Anton Tkach <anton.tkach.dev@gmail.com>
 // @match        https://*.kommo.com/*
@@ -406,16 +406,10 @@ IMPLIED.
                 this.playerAmount = 0;
                 this.getPlayerAmount();
 
-                const fullDate = `${this.getDate('[data-id="770966"] input').date}.${new Date().getFullYear()}`
-                const jsWeekday = new Date(fullDate.split('.').reverse().join('-')).getDay() ?? new Date().getDay();
-                // Convert US week (Sun=0) to EU week (Mon=0): (jsWeekday + 6) % 7
-                const weekday = (jsWeekday + 6) % 7;
-
-
                 let tariffPrice = 0;
                 let tariffPlayerAmount = 0;
                 if (this.tariffName != 'No tariff') {
-                    const match = tariffPriceTable.find(t => t.name == this.tariffName && t.dayOfWeek & 1 << weekday);
+                    const match = tariffPriceTable.find(t => t.name == this.tariffName && t.dayOfWeek & 1 << this.weekday);
                     [tariffPrice, tariffPlayerAmount] = [match.price || 0, match.defaultPlayerAmount]
                     if (!this.playerAmount) {
                         this.playerAmount = tariffPlayerAmount;
@@ -424,7 +418,7 @@ IMPLIED.
                 }
                 let playersPrice = 0;
                 if (!tariffPrice) {
-                    const localPrice = playersPriceTable.find(p => (p.dayOfWeek & 1 << weekday) && this.playerAmount >= p.minPlayerAmount)?.price ?? 0; 
+                    const localPrice = playersPriceTable.find(p => (p.dayOfWeek & 1 << this.weekday) && this.playerAmount >= p.minPlayerAmount)?.price ?? 0; 
                     playersPrice = this.playerAmount * localPrice;
                 }
                 this.budget = tariffPrice + playersPrice;
@@ -455,6 +449,13 @@ IMPLIED.
                     date: date?.slice(0, 5) || '',
                     time: time || ''
                 };
+            },
+
+            weekday() {
+                const fullDate = `${this.getDate('[data-id="770966"] input').date}.${new Date().getFullYear()}`
+                const jsWeekday = new Date(fullDate.split('.').reverse().join('-')).getDay() ?? new Date().getDay();
+                // Convert US week (Sun=0) to EU week (Mon=0): (jsWeekday + 6) % 7
+                return (jsWeekday + 6) % 7;
             },
 
             getMenu(){
