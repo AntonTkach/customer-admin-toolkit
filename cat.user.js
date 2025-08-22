@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         Customer Admin Toolkit
 // @namespace    http://tampermonkey.net/
-// @version      0.7.7.2
+// @version      0.7.7.3
 // @description  Add QoL improvement to CRM
 // @author       Anton Tkach <anton.tkach.dev@gmail.com>
 // @match        https://*.kommo.com/*
@@ -399,10 +399,11 @@ IMPLIED.
             // getters read UI to lead object, setters update UI from lead object
 
             setBudget() {
-                if (!this.tariffName) {
+                if (!document.querySelector('[data-id="771816"] input[type="radio"]:checked')) {
                     document.querySelector('input[name="CFV[771816]"]').click();
                     return;
                 }
+                this.getTariff();
                 this.playerAmount = 0;
                 this.getPlayerAmount();
 
@@ -431,13 +432,11 @@ IMPLIED.
                 document.querySelector('#autoComputeSumButton').click();
             },
 
-            getTariff(radio) {
+            getTariff(radio = document.querySelector('[data-id="771816"] input[type="radio"]:checked')) {
                 this.tariffName = radio.closest('label')?.querySelector('.control-radio-label-text')?.textContent.trim();
                 if (this.tariffName.includes('VIP')) {
                     this.tariffName = this.tariffName.split(' ')[0];
                 }
-                this.setBudget();
-                this.setLeadName();
             },
 
             getDate(selector) {
@@ -495,6 +494,8 @@ IMPLIED.
             setLeadName(){
                 const leadName = document?.querySelector('#person_n');
                 if (!leadName) { return }
+                this.getTariff();
+                this.getPlayerAmount();
                 const { date, time: timeFrom } = this.getDate('[data-id="770966"] input')
                 const { time: timeTo } = this.getDate('[data-id="770968"] input')
                 const leadNameCombined = `${date} ${timeFrom}-${timeTo} ${this.playerAmount} ${this.tariffName == "No tariff" ? 'players' : `pl ${this.tariffName}`}`
@@ -609,6 +610,8 @@ IMPLIED.
             radio.addEventListener('click', () => {
                 if (radio.checked) {
                     lead.getTariff(radio);
+                    lead.setBudget();
+                    lead.setLeadName();
                 }
             });
         });
@@ -616,6 +619,7 @@ IMPLIED.
         const playerAmountField = document?.querySelector('[data-id="768812"]');
         if (!playerAmountField) return;
         playerAmountField.addEventListener('change', () => {
+            lead.getPlayerAmount();
             lead.setBudget()
             lead.setLeadName()
         });
