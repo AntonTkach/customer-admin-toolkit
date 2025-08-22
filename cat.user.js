@@ -488,7 +488,7 @@ IMPLIED.
             },
 
             setPlayerAmount(newAmount){
-                manualSetValueAndApply(document?.querySelector('[data-id="768812"]'), newAmount);
+                manualSetValueAndApply(document?.querySelector('[data-id="768812"] input'), newAmount);
             },
 
             setLeadName(){
@@ -538,15 +538,15 @@ IMPLIED.
                   if (watchedInputs.has(dateSourceInput)) { return };
                   watchedInputs.add(dateSourceInput);
                   dateSourceInput.addEventListener('focus', () => { 
-                      const check = () => {
+                      const checkCalendarVisibility = () => {
                         const isHidden = getComputedStyle(document.querySelector('.kalendae.k-floating')).display == 'none';
                         if (isHidden && dateSource.querySelector('input').value) {
                             this.addQolButtons();
                             return;
                         }
-                        setTimeout(check, 200);
+                        setTimeout(checkCalendarVisibility, 200);
                       };
-                      check();
+                      checkCalendarVisibility();
                   });
                 }
 
