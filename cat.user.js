@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         Customer Admin Toolkit
 // @namespace    http://tampermonkey.net/
-// @version      0.7.7.3
+// @version      0.8.0.0
 // @description  Add QoL improvement to CRM
 // @author       Anton Tkach <anton.tkach.dev@gmail.com>
 // @match        https://*.kommo.com/*
@@ -586,12 +586,245 @@ IMPLIED.
                         });
                     });
                 }
-            }
+            },
+
+            addQolMenuButtons(){
+                const cardFieldsTop = document.querySelector('.card-fields__top-name-more');
+                if (!cardFieldsTop) return;
+
+                const cardPrintElement = document.getElementById('card_print');
+                if (!cardPrintElement) return;
+
+                const parentUl = cardPrintElement.closest('ul.button-input__context-menu');
+                if (!parentUl) return;
+
+                // Check if buttons already exist
+                if (parentUl.querySelector('[data-qol-menu-button]')) return;
+
+                // Reverse order for proper insertion
+                const menuButtons = [
+                    { label: 'Письмо в Lohesaba', action: () =>{return lead.compileLohesabaLetter()}},
+                    { label: 'Письмо клиенту Рус', action: () =>{return lead.compileLetterToClient('rus')}},
+                    { label: 'Письмо клиенту Эст', action: () =>{return lead.compileLetterToClient('est')}},
+                ];
+
+                menuButtons.forEach((button, index) => {
+                    const li = document.createElement('li');
+                    li.className = 'button-input__context-menu__item element__';
+                    li.setAttribute('data-qol-menu-button', index);
+
+                    li.innerHTML = `
+                        <div class="button-input__context-menu__item__inner">
+                            <span class="button-input__context-menu__item__icon-container">
+                                <svg class="button-input__context-menu__item__icon svg-icon svg-common--mail-dims">
+                                    <use xmlns:xlink="http://www.w3.org/1999/xlink" xlink:href="#common--mail"></use>
+                                </svg>
+                            </span>
+                            <span class="button-input__context-menu__item__text">
+                                ${button.label}
+                            </span>
+                        </div>
+                    `;
+
+                                        // Add click handler
+                    li.addEventListener('click', () => {
+                        const letter = button.action();
+                        const notificationMessage = `${button.label} скопировано в буфер обмена`;
+
+                        navigator.clipboard.writeText(letter).then(() => {
+                            this.showSimpleNotification(notificationMessage);
+                        }).catch(err => {
+                            console.error('Failed to copy text: ', err);
+                            this.showSimpleNotification('Ошибка при копировании в буфер обмена', true);
+                        });
+                    });
+
+                    // Insert after card_print element
+                    cardPrintElement.parentNode.insertBefore(li, cardPrintElement.nextSibling);
+                });
+            },
+
+            compileLohesabaLetter(){
+                const { date, time } = this.getDate('[data-id="770966"] input');
+                this.getMenu();
+
+                if (this.menu.length === 0) {
+                    this.showSimpleNotification('Еда не выбрана в меню', true);
+                    return null; // No menu items selected
+                }
+
+                let menuText = '';
+                this.menu.forEach((item, index) => {
+                    const playerCount = item.name.match(/\d+/)?.[0];
+                    let cleanItemName = item.name.replace(/\d+/, '').trim();
+
+                    let itemText;
+                    if (cleanItemName.toLowerCase().includes('burger')) {
+                        itemText = `${cleanItemName} на ${playerCount} человек`;
+                    } else {
+                        const pakettName = cleanItemName.includes('pakett') ? cleanItemName : `${cleanItemName} pakett`;
+                        itemText = `${pakettName} на ${playerCount} человек`;
+                    }
+
+                    menuText += itemText;
+                    if (index < this.menu.length - 1) {
+                        menuText += '.\n';
+                    }
+                });
+
+                const letter = this.dedent(`
+                    Добрый день,
+
+                    Заказ:
+                    ${menuText}
+
+                    Место проведения/адрес: Mustamäe tee 50, Tallinn
+                    Дата и время: ${date} начало в ${time}.
+
+                    Спасибо за сотрудничество.
+
+                    С уважением,
+                `);
+
+                return letter;
+            },
+
+            compileLetterToClient(language){
+                const { date, time } = this.getDate('[data-id="770966"] input');
+                const dateWithoutYear = date.replace(/\.\d{4}/, '');
+                const budget = document.querySelector('input[name="lead[PRICE]"]')?.value || '0';
+                const paymentDeadline = this.computePaymentDeadline();
+                const halfPayment = parseFloat(budget) * 0.5;
+                this.getTariff();
+
+                const match = tariffPriceTable.find(t => t.name == this.tariffName && t.dayOfWeek & 1 << this.weekday());
+                const maxPlayers = match ? match.defaultPlayerAmount : this.playerAmount;
+
+                let letter = '';
+
+                if (language === 'est') {
+                    letter = this.dedent(`
+                        Tere!
+
+                        Täname Teid meie teenuste kasutamise eest.
+                        Saadame Teile broneeringu üksikasjad ja ettemaksuarve.
+
+                        Kuupäev ja kellaaeg: ${dateWithoutYear}, kell ${time}
+                        Toimumiskoht/aadress: Mustamäe tee 50, Tallinn
+                        Osalejate arv: kuni ${maxPlayers} inimest
+                        Tariif: ${this.tariffName}
+
+                        Arve summa: ${budget}€
+                        Ettemaks 50%: ${halfPayment}€
+                        Maksetähtaeg ${paymentDeadline}
+                        Kirjale on lisatud arve tasumiseks.
+
+                        Lugupidamisega,
+                    `);
+                } else {
+                    letter = this.dedent(`
+                        Добрый день!
+
+                        Спасибо, что воспользовались нашими услугами.
+                        Высылаем Вам информацию по бронировке и счет на предоплату.
+
+                        Дата и время: ${dateWithoutYear}, в ${time}
+                        Место проведения / Адрес: Mustamäe tee 50, Tallinn
+                        Кол-во участников: до ${maxPlayers} человек
+                        Тариф: ${this.tariffName}
+
+                        Сумма счета: ${budget}€
+                        Предоплата 50%: ${halfPayment}€
+                        Срок оплаты: ${paymentDeadline}
+                        Счет на предоплату в приложении.
+
+                        С уважением,
+                    `);
+                }
+
+                return letter;
+            },
+
+            dedent(str){
+                const match = str.match(/^[ \t]*(?=\S)/gm);
+                if (!match) return str;
+                const indent = Math.max(...match.map(x => x.length));
+                const regex = new RegExp(`^[ \\t]{${indent}}`, 'gm');
+                let result = str.replace(regex, '');
+
+                result = result.replace(/^\n+/, '').trim();
+
+                return result;
+            },
+
+            showSimpleNotification(message, isError = false){
+                const notification = document.createElement('div');
+                notification.style.cssText = `
+                    position: fixed;
+                    bottom: -100px;
+                    left: 50%;
+                    transform: translateX(-50%);
+                    background: ${isError ? '#ff4444' : '#44aa44'};
+                    color: white;
+                    padding: 16px 24px;
+                    border-radius: 8px;
+                    font-family: Arial, sans-serif;
+                    font-size: 14px;
+                    font-weight: 500;
+                    z-index: 10000;
+                    box-shadow: 0 8px 24px rgba(0,0,0,0.3);
+                    max-width: 400px;
+                    word-wrap: break-word;
+                    text-align: center;
+                    opacity: 0;
+                    transition: all 0.3s cubic-bezier(0.68, -0.55, 0.265, 1.55);
+                    border-left: 4px solid ${isError ? '#cc0000' : '#00aa00'};
+                `;
+                notification.textContent = message;
+
+                document.body.appendChild(notification);
+
+                setTimeout(() => {
+                    notification.style.bottom = '30px';
+                    notification.style.opacity = '1';
+                }, 10);
+
+                setTimeout(() => {
+                    notification.style.bottom = '-100px';
+                    notification.style.opacity = '0';
+                    setTimeout(() => {
+                        if (notification.parentNode) {
+                            notification.parentNode.removeChild(notification);
+                        }
+                    }, 300);
+                }, 2700);
+            },
+            
+            computePaymentDeadline(){
+                const { date } = this.getDate('[data-id="770966"] input');
+                const eventDate = new Date(date.split('.').reverse().join('-'));
+                const today = new Date();
+                const daysDiff = Math.ceil((eventDate - today) / (1000 * 60 * 60 * 24));
+
+                let deadlineDate;
+                if (daysDiff > 14) {
+                    deadlineDate = new Date(today.getTime() + 5 * 24 * 60 * 60 * 1000);
+                } else if (daysDiff > 7) {
+                    deadlineDate = new Date(today.getTime() + 3 * 24 * 60 * 60 * 1000);
+                } else {
+                    deadlineDate = new Date(today.getTime() + 1 * 24 * 60 * 60 * 1000);
+                }
+
+                const pad = n => n.toString().padStart(2, '0');
+                return `${pad(deadlineDate.getDate())}.${pad(deadlineDate.getMonth() + 1)}`;
+            },
+
         };
 
         const ensureQolButtonsAreDrawn = (retries = 10, delay = 200) => {
             if (document.querySelector('.qol-button')) return;
             lead.addQolButtons();
+            lead.addQolMenuButtons();
             if (!document.querySelector('.qol-button') && retries > 0) {
                 setTimeout(() => ensureQolButtonsAreDrawn(retries - 1, delay), delay);
             }
