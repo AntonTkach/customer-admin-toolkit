@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         Customer Admin Toolkit
 // @namespace    http://tampermonkey.net/
-// @version      0.8.0.0
+// @version      0.8.0.1
 // @description  Add QoL improvement to CRM
 // @author       Anton Tkach <anton.tkach.dev@gmail.com>
 // @match        https://*.kommo.com/*
@@ -410,7 +410,7 @@ IMPLIED.
                 let tariffPrice = 0;
                 let tariffPlayerAmount = 0;
                 if (this.tariffName != 'No tariff') {
-                    const match = tariffPriceTable.find(t => t.name == this.tariffName && t.dayOfWeek & 1 << this.weekday);
+                    const match = tariffPriceTable.find(t => t.name == this.tariffName && t.dayOfWeek & 1 << this.weekday());
                     [tariffPrice, tariffPlayerAmount] = [match.price || 0, match.defaultPlayerAmount]
                     if (!this.playerAmount) {
                         this.playerAmount = tariffPlayerAmount;
@@ -419,7 +419,7 @@ IMPLIED.
                 }
                 let playersPrice = 0;
                 if (!tariffPrice) {
-                    const localPrice = playersPriceTable.find(p => (p.dayOfWeek & 1 << this.weekday) && this.playerAmount >= p.minPlayerAmount)?.price ?? 0; 
+                    const localPrice = playersPriceTable.find(p => (p.dayOfWeek & 1 << this.weekday()) && this.playerAmount >= p.minPlayerAmount)?.price ?? 0; 
                     playersPrice = this.playerAmount * localPrice;
                 }
                 this.budget = tariffPrice + playersPrice;
