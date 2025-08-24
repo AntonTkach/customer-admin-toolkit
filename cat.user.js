@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         Customer Admin Toolkit
 // @namespace    http://tampermonkey.net/
-// @version      0.8.0.1
+// @version      0.8.0.2
 // @description  Add QoL improvement to CRM
 // @author       Anton Tkach <anton.tkach.dev@gmail.com>
 // @match        https://*.kommo.com/*
@@ -373,7 +373,7 @@ IMPLIED.
             // Using EU convention: Mon=0, Tue=1, Wed=2, Thu=3, Fri=4, Sat=5, Sun=6
             { name: 'Adventure',  price: 250, dayOfWeek: 0b0001111, defaultPlayerAmount: 10 },
             { name: 'EPIC',       price: 450, dayOfWeek: 0b0001111, defaultPlayerAmount: 20 },
-            { name: 'VIP',        price: 625, dayOfWeek: 0b0001111, defaultPlayerAmount: 30 },
+            { name: 'VIP',        price: 650, dayOfWeek: 0b0001111, defaultPlayerAmount: 30 },
             { name: 'Adventure',  price: 320, dayOfWeek: 0b1110000, defaultPlayerAmount: 10 },
             { name: 'EPIC',       price: 520, dayOfWeek: 0b1110000, defaultPlayerAmount: 20 },
             { name: 'VIP',        price: 720, dayOfWeek: 0b1110000, defaultPlayerAmount: 30 },
