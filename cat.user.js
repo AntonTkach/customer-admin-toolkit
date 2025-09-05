@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         Customer Admin Toolkit
 // @namespace    http://tampermonkey.net/
-// @version      0.8.0.2
+// @version      0.8.0.3
 // @description  Add QoL improvement to CRM
 // @author       Anton Tkach <anton.tkach.dev@gmail.com>
 // @match        https://*.kommo.com/*
@@ -799,7 +799,7 @@ IMPLIED.
                     }, 300);
                 }, 2700);
             },
-            
+
             computePaymentDeadline(){
                 const { date } = this.getDate('[data-id="770966"] input');
                 const eventDate = new Date(date.split('.').reverse().join('-'));
@@ -856,6 +856,13 @@ IMPLIED.
             lead.setBudget()
             lead.setLeadName()
         });
+
+        const dateSource = document?.querySelector('[data-id="770966"]');
+        if (!dateSource) return;
+        dateSource.addEventListener('change', () => { lead.setLeadName() });
+        const dateTarget = document?.querySelector('[data-id="770968"]')
+        if (!dateTarget) return;
+        dateTarget.addEventListener('change', () => { lead.setLeadName() });
     };
 
     let lastURL = location.href;
